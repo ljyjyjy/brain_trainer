@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>反应力训练</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, sans-serif;
+    background: #f5f5f0;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 12px;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    overflow: hidden;
+  }
+  .container {
+    max-width: 420px;
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 0;
+  }
+  h1 {
+    text-align: center;
+    font-size: 20px;
+    color: #333;
+    letter-spacing: 2px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #999;
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+  /* Info bar */
+  .info-bar {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    margin-bottom: 8px;
+  }
+  .info-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+  .info-label { font-size: 10px; color: #999; }
+  .info-value {
+    font-size: 18px;
+    font-weight: 800;
+    color: #333;
+    font-variant-numeric: tabular-nums;
+  }
+  .info-value.best { font-size: 14px; color: #999; }
+  /* Progress bar */
+  .progress-bar-wrap {
+    width: 100%;
+    height: 4px;
+    background: #e0e0e0;
+    border-radius: 2px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: #4A90D9;
+    border-radius: 2px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+  /* Game area */
+  .game-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    min-height: 0;
+    touch-action: manipulation;
+  }
+  .status-text {
+    font-size: 28px;
+    font-weight: 800;
+    color: #ccc;
+    transition: all 0.1s;
+    text-align: center;
+    line-height: 1.4;
+  }
+  .status-text .sub {
+    font-size: 14px;
+    font-weight: 400;
+    color: #ccc;
+    display: block;
+    margin-top: 8px;
+  }
+  .status-text.ready { color: #999; }
+  .status-text.waiting {
+    color: #4A90D9;
+    animation: pulse 0.6s ease-in-out infinite alternate;
+  }
+  .status-text.hit { color: #4A90D9; }
+  .status-text.too-soon { color: #e74c3c; }
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.03); }
+  }
+
+  /* Target */
+  .target-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .target {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 16px;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    transform: scale(0);
+    transition: transform 0.1s ease-out;
+    touch-action: manipulation;
+  }
+  .target.show {
+    transform: scale(1);
+  }
+  .target:active {
+    transform: scale(0.9) !important;
+  }
+  .target.green { background: #27ae60; }
+  .target.blue { background: #4A90D9; }
+
+  /* Last result flash */
+  .result-flash {
+    position: absolute;
+    top: 20px;
+    font-size: 36px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+    opacity: 0;
+  }
+  .result-flash.show {
+    animation: flashUp 0.5s ease-out forwards;
+  }
+  .result-flash.fast { color: #27ae60; }
+  .result-flash.good { color: #4A90D9; }
+  .result-flash.ok { color: #e67e22; }
+  .result-flash.slow { color: #e74c3c; }
+  @keyframes flashUp {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-60px) scale(1.2); }
+  }
+
+  /* Combo */
+  .combo-display {
+    position: absolute;
+    bottom: 20px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #e67e22;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .combo-display.show { opacity: 1; }
+
+  /* Session result */
+  .result-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .result-overlay.show { display: flex; }
+  .result-card {
+    background: #fff;
+    border-radius: 24px;
+    padding: 32px 28px 24px;
+    width: 310px;
+    max-height: 85vh;
+    overflow-y: auto;
+    text-align: center;
+    animation: slideUp 0.35s cubic-bezier(0.21,1.02,0.73,1);
+  }
+  @keyframes slideUp {
+    from { transform: translateY(50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .result-card .emoji-big { font-size: 44px; margin-bottom: 8px; }
+  .result-card h2 { font-size: 20px; color: #333; margin-bottom: 4px; }
+  .result-card .avg-time {
+    font-size: 42px; font-weight: 800; color: #4A90D9;
+    margin: 8px 0 2px; font-variant-numeric: tabular-nums;
+  }
+  .result-card .best-stat {
+    font-size: 14px; color: #27ae60; font-weight: 600; margin-bottom: 4px;
+  }
+  .result-card .sub { color: #999; font-size: 13px; margin-bottom: 4px; }
+  .result-card .comment {
+    font-size: 14px; color: #333; font-weight: 500;
+    margin: 8px 0 12px; line-height: 1.5;
+    padding: 12px; background: #f8f9ff; border-radius: 12px;
+  }
+  .result-card .new-best {
+    color: #e74c3c; font-weight: 700; font-size: 14px; margin-bottom: 8px;
+  }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin: 8px 0 16px;
+    text-align: left;
+  }
+  .stat-item {
+    background: #fafafa;
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  .stat-item .lbl { font-size: 11px; color: #999; }
+  .stat-item .val { font-size: 16px; font-weight: 700; color: #333; }
+  .round-list {
+    width: 100%; margin: 8px 0 16px;
+    background: #fafafa; border-radius: 12px; padding: 8px 14px;
+    text-align: left;
+  }
+  .round-row {
+    display: flex; justify-content: space-between;
+    padding: 5px 0; font-size: 13px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .round-row:last-child { border-bottom: none; }
+  .round-row .rnum { color: #999; }
+  .round-row .rtime { font-weight: 600; }
+  .round-row .rtime.fast { color: #27ae60; }
+  .round-row .rtime.good { color: #4A90D9; }
+  .round-row .rtime.ok { color: #e67e22; }
+  .round-row .rtime.slow { color: #e74c3c; }
+  .btn {
+    width: 100%;
+    padding: 13px 0;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.1s;
+    letter-spacing: 1px;
+  }
+  .btn:active { transform: scale(0.95); }
+  .btn-primary { background: #4A90D9; color: #fff; box-shadow: 0 2px 0 #357abd; }
+  .btn-secondary { background: #eee; color: #999; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>⚡ 反应力</h1>
+  <p class="subtitle">看到目标出现 → 立刻点击</p>
+
+  <div class="info-bar">
+    <div class="info-item">
+      <span class="info-label">轮次</span>
+      <span class="info-value" id="roundDisplay">0 / 10</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">上次</span>
+      <span class="info-value" id="lastTime" style="font-size:16px">--</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">🏆 最佳</span>
+      <span class="info-value best" id="bestDisplay">--</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">🔥 连击</span>
+      <span class="info-value" id="comboDisplay" style="font-size:16px">0</span>
+    </div>
+  </div>
+
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progressFill"></div>
+  </div>
+
+  <div class="game-area" id="gameArea">
+    <div class="status-text ready" id="statusText">
+      点击下方开始
+      <span class="sub">目标出现后尽快点击</span>
+    </div>
+    <div class="target-wrap" style="display:none" id="targetWrap">
+      <div class="target" id="target"></div>
+    </div>
+    <div class="result-flash" id="resultFlash"></div>
+    <div class="combo-display" id="comboFlash"></div>
+  </div>
+
+  <div style="margin-top:10px;display:flex;gap:8px">
+    <button class="btn btn-primary" id="btnStart">开始训练</button>
+    <button class="btn btn-secondary" id="btnReset">↻ 重置</button>
+  </div>
+</div>
+
+<div class="result-overlay" id="resultOverlay">
+  <div class="result-card">
+    <div class="emoji-big" id="rEmoji">🎉</div>
+    <h2 id="rTitle">完成！</h2>
+    <div class="avg-time" id="rAvg">0ms</div>
+    <div class="best-stat" id="rBest">最佳 0ms</div>
+    <div class="sub" id="rSub">10 轮</div>
+    <div class="comment" id="rComment"></div>
+    <div id="rNewBest" class="new-best" style="display:none">🏆 新纪录！</div>
+    <div class="stat-grid" id="statGrid"></div>
+    <div class="round-list" id="roundList"></div>
+    <button class="btn btn-primary" onclick="closeResult()">再来一轮</button>
+  </div>
+</div>
+
+<script>
+// ---- Audio ----
+const AC = window.AudioContext || window.webkitAudioContext;
+let ac = null;
+function ia() { if (!ac) ac = new AC(); }
+function tn(f,d,t,v) { try { ia(); const o=ac.createOscillator(),g=ac.createGain(); o.type=t; o.frequency.value=f; g.gain.setValueAtTime(v,ac.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+d); o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime+d); } catch(e){} }
+function vib(p) { try { navigator.vibrate&&navigator.vibrate(p); } catch(e){} }
+
+// ---- State ----
+const TOTAL_ROUNDS = 10;
+let state = {
+  phase: 'idle', // idle | waiting | showing | result
+  round: 0,
+  results: [],
+  combo: 0,
+  maxCombo: 0,
+  targetTime: 0,
+  timerId: null,
+  bestRecord: JSON.parse(localStorage.getItem('reactionBest') || 'null'),
+  lastBest: JSON.parse(localStorage.getItem('reactionBest') || 'null'),
+};
+
+// DOM refs
+const statusText = document.getElementById('statusText');
+const targetWrap = document.getElementById('targetWrap');
+const target = document.getElementById('target');
+const gameArea = document.getElementById('gameArea');
+const roundDisplay = document.getElementById('roundDisplay');
+const lastTime = document.getElementById('lastTime');
+const bestDisplay = document.getElementById('bestDisplay');
+const comboDisplay = document.getElementById('comboDisplay');
+const progressFill = document.getElementById('progressFill');
+const resultFlash = document.getElementById('resultFlash');
+const comboFlash = document.getElementById('comboFlash');
+
+function updateBestDisplay() {
+  bestDisplay.textContent = state.bestRecord ? state.bestRecord + 'ms' : '--';
+}
+updateBestDisplay();
+
+function showStatus(text, cls) {
+  statusText.style.display = 'block';
+  statusText.textContent = text;
+  statusText.className = 'status-text' + (cls ? ' ' + cls : '');
+}
+
+function showTarget() {
+  targetWrap.style.display = 'flex';
+  statusText.style.display = 'none';
+}
+
+function hideTarget() {
+  targetWrap.style.display = 'none';
+  statusText.style.display = 'block';
+}
+
+// ---- Core game loop ----
+function nextRound() {
+  if (state.round >= TOTAL_ROUNDS) {
+    endSession();
+    return;
+  }
+
+  state.phase = 'waiting';
+  state.round++;
+  roundDisplay.textContent = state.round + ' / ' + TOTAL_ROUNDS;
+  progressFill.style.width = ((state.round - 1) / TOTAL_ROUNDS * 100) + '%';
+
+  hideTarget();
+  showStatus('等待...', 'waiting');
+
+  // Random delay: 1.0 - 2.8s
+  const delay = 800 + Math.random() * 2000;
+
+  state.timerId = setTimeout(() => {
+    if (state.phase !== 'waiting') return;
+
+    state.phase = 'showing';
+    state.targetTime = performance.now();
+
+    // Random position for target (avoid edges)
+    const areaRect = gameArea.getBoundingClientRect();
+    const maxX = areaRect.width - 140;
+    const maxY = areaRect.height - 140;
+    const x = 70 + Math.random() * Math.max(0, maxX);
+    const y = 70 + Math.random() * Math.max(0, maxY);
+
+    target.classList.remove('show', 'green', 'blue');
+    target.style.left = x + 'px';
+    target.style.top = y + 'px';
+    target.textContent = '点！';
+    target.className = 'target green show';
+    targetWrap.style.display = 'flex';
+    targetWrap.style.alignItems = 'flex-start';
+    targetWrap.style.justifyContent = 'flex-start';
+    target.style.position = 'absolute';
+    target.style.left = x + 'px';
+    target.style.top = y + 'px';
+
+    statusText.style.display = 'none';
+
+    tn(660, 0.08, 'sine', 0.1);
+
+  }, delay);
+}
+
+function handleTargetTap() {
+  if (state.phase !== 'showing') return;
+
+  state.phase = 'result';
+  if (state.timerId) clearTimeout(state.timerId);
+
+  const reaction = Math.round(performance.now() - state.targetTime);
+
+  // Score based on reaction time
+  let cls = 'slow';
+  let comment = '';
+  if (reaction < 150) { cls = 'fast'; comment = '⚡ 超神！'; }
+  else if (reaction < 200) { cls = 'fast'; comment = '🔥 飞快！'; }
+  else if (reaction < 250) { cls = 'good'; comment = '👍 很快！'; }
+  else if (reaction < 300) { cls = 'good'; comment = '👌 不错'; }
+  else if (reaction < 400) { cls = 'ok'; comment = '😅 还行'; }
+  else { cls = 'slow'; comment = '🐢 慢了'; }
+
+  // Combo
+  if (reaction < 250) {
+    state.combo++;
+    if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+  } else {
+    state.combo = 0;
+  }
+
+  state.results.push(reaction);
+
+  // Sound + vib
+  if (reaction < 200) { tn(880,0.06,'sine',0.12); setTimeout(()=>tn(1100,0.05,'sine',0.08),40); vib(10); }
+  else if (reaction < 300) { tn(660,0.07,'sine',0.1); vib(8); }
+  else { tn(330,0.12,'sine',0.08); vib([10,20]); }
+
+  // Flash result on screen
+  resultFlash.textContent = reaction + 'ms';
+  resultFlash.className = 'result-flash ' + cls;
+  setTimeout(() => resultFlash.classList.add('show'), 10);
+  setTimeout(() => resultFlash.classList.remove('show'), 500);
+
+  // Combo display
+  if (state.combo >= 3) {
+    comboFlash.textContent = '🔥 ' + state.combo + '连击';
+    comboFlash.className = 'combo-display show';
+  } else {
+    comboFlash.className = 'combo-display';
+  }
+
+  // Update UI
+  lastTime.textContent = reaction + 'ms';
+  lastTime.style.color = cls === 'fast' ? '#27ae60' : cls === 'good' ? '#4A90D9' : cls === 'ok' ? '#e67e22' : '#e74c3c';
+  comboDisplay.textContent = state.combo >= 3 ? state.combo + ' 🔥' : '0';
+
+  // Update best record
+  if (state.bestRecord === null || reaction < state.bestRecord) {
+    state.bestRecord = reaction;
+    localStorage.setItem('reactionBest', JSON.stringify(reaction));
+    updateBestDisplay();
+  }
+
+  // Show "点到了" briefly
+  target.textContent = comment;
+  target.className = 'target ' + cls + ' show';
+
+  // Next round after delay
+  setTimeout(() => {
+    if (state.round >= TOTAL_ROUNDS) {
+      hideTarget();
+      endSession();
+    } else {
+      nextRound();
+    }
+  }, 500);
+}
+
+// ---- Wrong tap (early) ----
+gameArea.addEventListener('click', (e) => {
+  if (state.phase === 'waiting') {
+    // Tapped too early!
+    state.phase = 'idle';
+    if (state.timerId) clearTimeout(state.timerId);
+    state.combo = 0;
+    comboDisplay.textContent = '0';
+
+    showStatus('点早了！等目标出现', 'too-soon');
+    tn(200, 0.2, 'sawtooth', 0.08);
+    vib([20,30,20]);
+
+    // Recover and retry same round
+    state.round--; // retry this round
+    setTimeout(() => nextRound(), 800);
+  }
+});
+
+// Target tap
+target.addEventListener('click', (e) => {
+  e.stopPropagation();
+  handleTargetTap();
+});
+
+// ---- Session control ----
+function startSession() {
+  ia();
+  state.phase = 'idle';
+  state.round = 0;
+  state.results = [];
+  state.combo = 0;
+  state.maxCombo = 0;
+  state.lastBest = state.bestRecord;
+
+  comboDisplay.textContent = '0';
+  lastTime.textContent = '--';
+  lastTime.style.color = '#333';
+  progressFill.style.width = '0%';
+  document.getElementById('btnStart').textContent = '训练中...';
+
+  nextRound();
+}
+
+function endSession() {
+  state.phase = 'idle';
+  hideTarget();
+  showStatus('完成！', 'ready');
+
+  document.getElementById('btnStart').textContent = '再来一轮';
+
+  const avg = Math.round(state.results.reduce((a,b) => a+b, 0) / state.results.length);
+  const best = Math.min(...state.results);
+  const isBest = state.lastBest === null || best < state.lastBest;
+
+  // Show result
+  document.getElementById('rEmoji').textContent =
+    avg < 180 ? '🤯' : avg < 220 ? '🔥' : avg < 280 ? '⚡' : avg < 350 ? '👍' : '😅';
+  document.getElementById('rTitle').textContent =
+    avg < 180 ? '⚡ 反应神速！' : avg < 220 ? '🔥 超级快！' : avg < 280 ? '👍 反应很快！' : avg < 350 ? '💪 还不错' : '📈 继续练习！';
+  document.getElementById('rAvg').textContent = avg + 'ms';
+  document.getElementById('rBest').textContent = '最佳 ' + best + 'ms';
+  document.getElementById('rSub').textContent = TOTAL_ROUNDS + ' 轮 · 最高连击 ' + state.maxCombo;
+  document.getElementById('rNewBest').style.display = isBest ? 'block' : 'none';
+
+  const comments = [];
+  if (avg < 180) comments.push('你的反应速度属于顶尖水平！可能是人群中的前 1%。');
+  else if (avg < 220) comments.push('反应非常快！经过训练还能更快。');
+  else if (avg < 280) comments.push('反应速度良好，超过大部分人了。');
+  else if (avg < 350) comments.push('平均反应速度正常，坚持训练一周会有明显提升。');
+  else comments.push('反应速度偏慢，别担心！每天练 5 分钟，两周就能看到巨大进步。');
+  if (state.maxCombo >= 5) comments.push(' 最高 ' + state.maxCombo + ' 连击🔥状态好的时候很猛！');
+  document.getElementById('rComment').textContent = comments.join('');
+
+  // Stat grid
+  document.getElementById('statGrid').innerHTML = [
+    ['最快', best + 'ms'], ['最慢', Math.max(...state.results) + 'ms'],
+    ['平均', avg + 'ms'], ['连击', state.maxCombo],
+  ].map(s => `<div class="stat-item"><div class="lbl">${s[0]}</div><div class="val">${s[1]}</div></div>`).join('');
+
+  // Round list
+  document.getElementById('roundList').innerHTML =
+    '<div style="font-size:12px;color:#999;margin-bottom:4px">每轮详情</div>' +
+    state.results.map((r, i) => {
+      const c = r < 200 ? 'fast' : r < 300 ? 'good' : r < 400 ? 'ok' : 'slow';
+      return `<div class="round-row"><span class="rnum">#${i+1}</span><span class="rtime ${c}">${r}ms</span></div>`;
+    }).join('');
+
+  document.getElementById('resultOverlay').classList.add('show');
+}
+
+function closeResult() {
+  document.getElementById('resultOverlay').classList.remove('show');
+  resetSession();
+}
+
+function resetSession() {
+  if (state.timerId) clearTimeout(state.timerId);
+  state.phase = 'idle';
+  state.round = 0;
+  state.results = [];
+  state.combo = 0;
+  state.maxCombo = 0;
+  hideTarget();
+  showStatus('点击下方开始', 'ready');
+  roundDisplay.textContent = '0 / ' + TOTAL_ROUNDS;
+  progressFill.style.width = '0%';
+  lastTime.textContent = '--';
+  lastTime.style.color = '#333';
+  comboDisplay.textContent = '0';
+  document.getElementById('btnStart').textContent = '开始训练';
+}
+
+// ---- Buttons ----
+document.getElementById('btnStart').addEventListener('click', () => {
+  if (state.phase === 'idle') startSession();
+});
+document.getElementById('btnReset').addEventListener('click', resetSession);
+
+// Init
+showStatus('点击下方开始', 'ready');
+roundDisplay.textContent = '0 / ' + TOTAL_ROUNDS;
+</script>
+</body>
+</html>

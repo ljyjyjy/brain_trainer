@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp \"C:/Users/wjd123/Downloads/image\\(2\\).jpg\" \"D:/编程/char0.jpg\")",
+      "Bash(cp \"C:/Users/wjd123/Downloads/image\\(1\\).jpg\" \"D:/编程/char1.jpg\")",
+      "Bash(cp \"C:/Users/wjd123/Downloads/image.jpg\" \"D:/编程/char2.jpg\")",
+      "Bash(ls \"C:/Users/wjd123/Downloads/\" | grep -i image)",
+      "Read(//c/Users/wjd123/**)",
+      "Bash(cp \"/c/Users/wjd23/Downloads/image \\(2\\).jpg\" \"D:/编程/char0.jpg\")",
+      "Bash(cp \"/c/Users/wjd23/Downloads/image \\(1\\).jpg\" \"D:/编程/char1.jpg\")",
+      "Bash(cp \"/c/Users/wjd23/Downloads/image.jpg\" \"D:/编程/char2.jpg\")",
+      "Read(//c/Users/wjd23/下载/**)",
+      "Read(//c/Users/wjd23/Downloads/**)",
+      "Bash(winget install *)",
+      "Bash(find /c/ -maxdepth 4 -name \"android.exe\" -o -name \"android\" -type f 2>/dev/null | head -10)",
+      "Read(//c//**)",
+      "Bash(\"/c/Users/wjd23/AppData/Local/Microsoft/WinGet/Packages/Google.AndroidCLI_Microsoft.Winget.Source_8wekyb3d8bbwe/android.exe\" --help)",
+      "Bash(cmd.exe //c start \"\" \"D:\\\\scan_app_new\\\\build\\\\app\\\\outputs\\\\flutter-apk\")",
+      "Read(//d/scan_app_new/lib/**)",
+      "Read(//d/scan_app/lib/**)",
+      "Bash(cp -r \"/d/scan_app/lib/screens\" \"/d/scan_app_new/lib/\")",
+      "Bash(cp -r \"/d/scan_app/lib/widgets\" \"/d/scan_app_new/lib/\")",
+      "Bash(export PATH=\"/c/Users/wjd23/flutter/bin:$PATH\")",
+      "Bash(export JAVA_HOME=\"/c/Program Files/Amazon Corretto/jdk17.0.19_10\")",
+      "Bash(export PATH=\"$JAVA_HOME/bin:$PATH\")",
+      "Read(//d/scan_app_new/**)",
+      "Bash(flutter build *)",
+      "Bash(curl -s \"https://gitee.com/api/v5/repos/ljyjy5200/brain_trainer?access_token=207ce4cf7593d099d192ce51e348c207\")",
+      "Bash(curl -sL -o /dev/null -w \"%{http_code}\" \"https://ljyjyjy.github.io/brain_trainer/brain_trainer.html\")"
+    ],
+    "additionalDirectories": [
+      "D:\\编程",
+      "D:\\scan_app_new\\lib"
+    ]
+  }
+}
