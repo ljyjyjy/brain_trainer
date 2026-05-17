@@ -1,0 +1,18 @@
+{
+  "description": "脑力训练小程序",
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "setting": {
+    "bundle": false,
+    "userConfirmedBundleSwitch": false,
+    "urlCheck": true,
+    "scopeDataCheck": false
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.7.1",
+  "projectname": "brain_trainer",
+  "triggers": [],
+  "condition": {}
+}

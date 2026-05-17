@@ -1,0 +1,33 @@
+<view class="container">
+  <!-- 顶部 -->
+  <view class="header">
+    <text class="logo">🧠</text>
+    <text class="title">脑力训练</text>
+    <text class="subtitle">9 种小游戏，全面锻炼你的反应力</text>
+  </view>
+
+  <!-- 广告位（开通流量主后生效） -->
+  <view class="ad-banner">
+    <ad unit-id="{{adUnitId}}" ad-intervals="60"></ad>
+  </view>
+
+  <!-- 游戏列表 -->
+  <view class="game-list">
+    <view class="game-card" wx:for="{{games}}" wx:key="name" data-game="{{item.name}}" bindtap="goToGame">
+      <text class="game-emoji">{{item.emoji}}</text>
+      <view class="game-info">
+        <text class="game-name">{{item.name}}</text>
+        <text class="game-desc">{{item.desc}}</text>
+      </view>
+      <text class="game-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- 开始按钮 -->
+  <button class="start-btn" bindtap="goToGame" data-game="all">开始训练</button>
+
+  <!-- 底部 -->
+  <view class="footer">
+    <text class="footer-text">所有数据本地存储，无需联网</text>
+  </view>
+</view>

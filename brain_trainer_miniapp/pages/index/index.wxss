@@ -1,0 +1,107 @@
+.container {
+  padding: 20px 16px;
+  min-height: 100vh;
+}
+
+.header {
+  text-align: center;
+  padding: 30px 0 20px;
+}
+
+.logo {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #333;
+  letter-spacing: 2px;
+  display: block;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #999;
+  margin-top: 8px;
+  display: block;
+}
+
+.ad-banner {
+  margin: 12px 0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.game-list {
+  margin: 16px 0;
+}
+
+.game-card {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  padding: 14px 16px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.game-emoji {
+  font-size: 28px;
+  width: 44px;
+  text-align: center;
+}
+
+.game-info {
+  flex: 1;
+  margin-left: 8px;
+}
+
+.game-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  display: block;
+}
+
+.game-desc {
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
+  display: block;
+}
+
+.game-arrow {
+  font-size: 22px;
+  color: #ccc;
+  padding-left: 8px;
+}
+
+.start-btn {
+  background: #4A90D9;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 14px;
+  margin: 20px 0;
+  border: none;
+  letter-spacing: 2px;
+}
+
+.start-btn::after {
+  border: none;
+}
+
+.footer {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.footer-text {
+  font-size: 11px;
+  color: #ccc;
+}
