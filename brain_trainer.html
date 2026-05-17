@@ -1,0 +1,4098 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>脑力训练 - 舒尔特方格 + 反应力</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, sans-serif;
+  background: #f5f5f0;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 12px;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.container {
+  max-width: 420px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding-top: 12px;
+}
+
+/* ---- Header ---- */
+.app-header { text-align: center; margin-bottom: 10px; }
+.app-header h1 { font-size: 22px; color: #333; letter-spacing: 2px; display: flex; align-items: center; justify-content: center; }
+
+/* ---- Mode Tabs (top level) ---- */
+.mode-tabs { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; justify-content: center; }
+.mode-tab {
+  padding: 5px 8px; border: 1.5px solid #ddd; border-radius: 8px;
+  background: #fff; font-size: 11px; font-weight: 700; color: #999;
+  cursor: pointer; transition: all 0.2s; letter-spacing: 0.3px;
+}
+.mode-tab.active { border-color: #4A90D9; background: #4A90D9; color: #fff; }
+
+.mode-panel { display: none; }
+.mode-panel.active { display: block; }
+
+/* ---- Shared Styles ---- */
+.info-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px; padding: 8px 12px;
+  background: #fff; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.info-item { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.info-label { font-size: 10px; color: #999; letter-spacing: 1px; }
+.info-value { font-size: 18px; font-weight: 800; color: #333; font-variant-numeric: tabular-nums; }
+.info-value.best { font-size: 13px; color: #999; }
+
+.btn-group { display: flex; gap: 8px; margin-top: 10px; }
+.btn {
+  flex: 1; padding: 12px 0; border: none; border-radius: 10px;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s; letter-spacing: 1px;
+}
+.btn:active { transform: scale(0.95); }
+.btn-primary { background: #4A90D9; color: #fff; box-shadow: 0 2px 0 #357abd; }
+.btn-secondary { background: #fff; color: #999; border: 1.5px solid #ddd; }
+.btn-danger { background: #e74c3c; color: #fff; box-shadow: 0 2px 0 #c0392b; }
+.footer-text { text-align: center; color: #ccc; font-size: 11px; padding: 10px 0 4px; }
+
+/* ---- Sub-mode toggles (经典/无尽) ---- */
+.sub-mode-bar {
+  display: flex; gap: 4px; margin-bottom: 10px;
+  background: #f0f0f0; border-radius: 8px; padding: 3px;
+}
+.sub-mode-btn {
+  flex: 1; padding: 6px 0; border: none; border-radius: 6px;
+  background: transparent; font-size: 13px; font-weight: 600;
+  color: #999; cursor: pointer; transition: all 0.2s;
+}
+.sub-mode-btn.active { background: #fff; color: #333; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.sub-mode-btn:disabled { opacity: 0.4; pointer-events: none; }
+
+/* ---- Result Overlay ---- */
+.result-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4); align-items: center; justify-content: center; z-index: 100;
+}
+.result-overlay.show { display: flex; }
+.result-card {
+  background: #fff; border-radius: 24px; padding: 28px 24px 20px;
+  width: 310px; max-height: 90vh; overflow-y: auto; text-align: center;
+  animation: slideUp 0.35s cubic-bezier(0.21,1.02,0.73,1);
+}
+@keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.result-card .emoji-big { font-size: 44px; margin-bottom: 6px; }
+.result-card h2 { font-size: 20px; color: #333; margin-bottom: 4px; }
+.result-card .comment {
+  font-size: 14px; color: #333; font-weight: 500;
+  margin: 8px 0 12px; line-height: 1.5; padding: 12px; background: #f8f9ff; border-radius: 12px;
+}
+.new-best { color: #e74c3c; font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+
+/* ---- Score Popup ---- */
+.score-popup {
+  position: fixed; font-size: 28px; font-weight: 900; color: #4A90D9;
+  pointer-events: none; z-index: 50;
+  text-shadow: 0 0 12px rgba(74,144,217,0.3);
+  animation: floatUp 0.7s ease-out forwards;
+}
+.score-popup.bonus { font-size: 36px; color: #e67e22; text-shadow: 0 0 16px rgba(230,126,34,0.4); }
+.score-popup.wrong-popup { color: #e74c3c; font-size: 20px; text-shadow: none; }
+@keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-80px) scale(1.2); } }
+
+/* =============================================
+   SCHULTE MODE
+   ============================================= */
+#modeSchulte .subtitle { text-align: center; color: #999; font-size: 12px; margin-bottom: 8px; }
+#modeSchulte .difficulty-bar { display: flex; gap: 6px; margin-bottom: 10px; }
+#modeSchulte .diff-btn {
+  flex: 1; padding: 7px 0; border: 1.5px solid #ddd; border-radius: 8px;
+  background: #fff; font-size: 13px; font-weight: 600; color: #999;
+  cursor: pointer; transition: all 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+#modeSchulte .diff-btn.active { border-color: #4A90D9; background: #4A90D9; color: #fff; }
+#modeSchulte .diff-btn:disabled { opacity: 0.4; pointer-events: none; }
+#modeSchulte .grid-wrapper { position: relative; width: 100%; margin-bottom: 8px; }
+#modeSchulte .grid-wrapper::before { content: ''; display: block; padding-bottom: 100%; }
+#modeSchulte .grid {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  display: grid; gap: 5px;
+}
+#modeSchulte .cell {
+  display: flex; align-items: center; justify-content: center;
+  background: #fff; border-radius: 10px; font-weight: 800; color: #333;
+  cursor: pointer; box-shadow: 0 3px 0 #d0d0d0, 0 2px 8px rgba(0,0,0,0.06);
+  font-size: calc(34px - 3 * var(--size));
+  touch-action: manipulation; position: relative; overflow: hidden;
+  border: 2px solid transparent;
+  transition: transform 0.06s, box-shadow 0.06s, background 0.15s, color 0.15s;
+}
+#modeSchulte .cell.done {
+  background: #f0f4ff !important; color: #c0c8e0 !important;
+  border-color: transparent !important; transform: scale(0.9) !important;
+  box-shadow: none !important; pointer-events: none;
+  transition: transform 0.2s, background 0.2s, color 0.2s;
+}
+#modeSchulte .cell.next-target {
+  border-color: #4A90D9;
+  box-shadow: 0 3px 0 #d0d0d0, 0 0 12px rgba(74,144,217,0.15);
+}
+#modeSchulte .cell.wrong-flash {
+  background: #fde8e8 !important; color: #e74c3c !important;
+  border-color: #e74c3c !important; animation: shake 0.35s;
+}
+@keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+#modeSchulte .hit-flare {
+  position: absolute; inset: 0; border-radius: 10px;
+  background: rgba(74,144,217,0.2); pointer-events: none;
+  animation: flareOut 0.35s ease-out forwards;
+}
+#modeSchulte .hit-flare.wrong { background: rgba(231,76,60,0.2); }
+@keyframes flareOut { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.2); } }
+#modeSchulte .status-area { text-align: center; margin-bottom: 4px; min-height: 24px; }
+#modeSchulte .next-num {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 16px; background: #fff; border-radius: 16px;
+  font-size: 13px; color: #999; border: 1px solid #4A90D9;
+}
+#modeSchulte .next-num strong { font-size: 22px; color: #4A90D9; min-width: 24px; text-align: center; }
+#modeSchulte .status-extra { text-align: center; font-size: 12px; color: #999; margin-bottom: 6px; min-height: 18px; }
+
+/* Schulte result */
+#modeSchulte .result-time { font-size: 48px; font-weight: 800; color: #4A90D9; margin: 8px 0 4px; font-variant-numeric: tabular-nums; }
+#modeSchulte .result-score { font-size: 32px; font-weight: 900; color: #4A90D9; margin: 4px 0 8px; }
+#modeSchulte .result-sub { color: #999; font-size: 13px; margin-bottom: 4px; }
+#modeSchulte .result-wrong { color: #999; font-size: 13px; margin-bottom: 8px; }
+#modeSchulte .tip {
+  font-size: 13px; color: #999; margin-bottom: 14px; line-height: 1.6;
+  padding: 12px; background: #fafafa; border-radius: 10px; text-align: left;
+}
+#modeSchulte .tip strong { color: #4A90D9; display: block; margin-bottom: 4px; font-size: 12px; }
+#modeSchulte .tip-collapse { font-size: 12px; color: #4A90D9; cursor: pointer; padding: 4px 0; user-select: none; }
+#modeSchulte .tip-content { padding-top: 4px; }
+#modeSchulte .record-list {
+  width: 100%; margin: 8px 0 16px; text-align: left;
+  background: #fafafa; border-radius: 12px; padding: 8px 16px;
+}
+#modeSchulte .record-row {
+  display: flex; justify-content: space-between;
+  padding: 7px 0; font-size: 14px; border-bottom: 1px solid #f0f0f0;
+}
+#modeSchulte .record-row:last-child { border-bottom: none; }
+#modeSchulte .record-row .label { color: #999; }
+#modeSchulte .record-row .val { font-weight: 600; color: #333; }
+#modeSchulte .record-row.best-row .val { color: #4A90D9; }
+/* Endless extra stat row in result */
+#modeSchulte .result-endless-stats { margin: 8px 0 12px; padding: 10px; background: #fafafa; border-radius: 12px; text-align: left; }
+#modeSchulte .result-endless-stats .row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+#modeSchulte .result-endless-stats .row .l { color: #999; }
+#modeSchulte .result-endless-stats .row .v { color: #333; font-weight: 600; }
+
+/* =============================================
+   REACTION MODE
+   ============================================= */
+#modeReaction .subtitle { text-align: center; color: #999; font-size: 12px; margin-bottom: 8px; }
+#modeReaction { flex: 1; display: none; flex-direction: column; }
+#modeReaction.active { display: flex; }
+#modeReaction .progress-bar-wrap { width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
+#modeReaction .progress-bar-fill { height: 100%; background: #4A90D9; border-radius: 2px; transition: width 0.3s; width: 0%; }
+#modeReaction .game-area {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  position: relative; border-radius: 16px; background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-height: 280px; touch-action: manipulation; overflow: hidden;
+}
+#modeReaction .status-text {
+  font-size: 28px; font-weight: 800; color: #ccc;
+  transition: all 0.1s; text-align: center; line-height: 1.4;
+}
+#modeReaction .status-text .subtxt { font-size: 14px; font-weight: 400; color: #ccc; display: block; margin-top: 8px; }
+#modeReaction .status-text.ready { color: #999; }
+#modeReaction .status-text.waiting { color: #4A90D9; animation: pulse 0.6s ease-in-out infinite alternate; }
+#modeReaction .status-text.too-soon { color: #e74c3c; }
+@keyframes pulse { 0% { transform: scale(1); } 100% { transform: scale(1.03); } }
+#modeReaction .target-wrap { position: absolute; inset: 0; }
+#modeReaction .target {
+  width: 120px; height: 120px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 16px; color: #fff; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  transform: scale(0); transition: transform 0.12s ease-out;
+  touch-action: manipulation; position: absolute; z-index: 2;
+}
+#modeReaction .target.show { transform: scale(1); }
+#modeReaction .target:active { transform: scale(0.9) !important; }
+#modeReaction .target.green { background: #27ae60; }
+#modeReaction .target.blue { background: #4A90D9; }
+#modeReaction .target.fast { background: #27ae60; }
+#modeReaction .target.good { background: #4A90D9; }
+#modeReaction .target.ok { background: #e67e22; }
+#modeReaction .target.slow { background: #e74c3c; }
+/* Trap target */
+#modeReaction .target.trap { background: #e74c3c; cursor: default; }
+#modeReaction .target.trap-hit { background: #c0392b; animation: trapShake 0.4s; }
+@keyframes trapShake { 0%,100% { transform: scale(1) rotate(0deg); } 25% { transform: scale(1) rotate(-10deg); } 75% { transform: scale(1) rotate(10deg); } }
+/* Flash target */
+#modeReaction .target.flash { background: #8e44ad; }
+#modeReaction .target.flash.miss { background: #6c3483; animation: flashPulse 0.3s; }
+@keyframes flashPulse { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(0); } }
+#modeReaction .target.flash.show { animation: flashGlow 0.6s ease-in-out; }
+@keyframes flashGlow { 0% { box-shadow: 0 0 10px rgba(142,68,173,0.5); } 50% { box-shadow: 0 0 30px rgba(142,68,173,0.8); } 100% { box-shadow: 0 0 10px rgba(142,68,173,0.3); } }
+/* Size modifier */
+#modeReaction .target.size-sm { width: 80px; height: 80px; font-size: 14px; }
+#modeReaction .target.size-xs { width: 60px; height: 60px; font-size: 12px; }
+/* Target type indicator on info bar */
+#modeReaction .target-indicator {
+  font-size: 11px; padding: 3px 10px; border-radius: 10px;
+  background: #f0f0f0; color: #999; font-weight: 600; margin-bottom: 4px;
+  display: inline-block;
+}
+#modeReaction .target-indicator.normal { background: #e8f5e9; color: #27ae60; }
+#modeReaction .target-indicator.trap { background: #fde8e8; color: #e74c3c; }
+#modeReaction .target-indicator.flash { background: #f3e8ff; color: #8e44ad; }
+
+#modeReaction .result-flash {
+  position: absolute; top: 20px; font-size: 36px; font-weight: 900;
+  font-variant-numeric: tabular-nums; pointer-events: none; opacity: 0; z-index: 3;
+}
+#modeReaction .result-flash.show { animation: flashUp 0.5s ease-out forwards; }
+#modeReaction .result-flash.fast { color: #27ae60; }
+#modeReaction .result-flash.good { color: #4A90D9; }
+#modeReaction .result-flash.ok { color: #e67e22; }
+#modeReaction .result-flash.slow { color: #e74c3c; }
+#modeReaction .result-flash.trap-success { color: #27ae60; font-size: 40px; }
+#modeReaction .result-flash.trap-fail { color: #e74c3c; font-size: 40px; }
+@keyframes flashUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-60px) scale(1.2); } }
+#modeReaction .combo-display {
+  position: absolute; bottom: 20px; font-size: 16px; font-weight: 700;
+  color: #e67e22; opacity: 0; transition: opacity 0.2s; z-index: 3;
+}
+#modeReaction .combo-display.show { opacity: 1; }
+
+/* Reaction result extras */
+#modeReaction .avg-time { font-size: 42px; font-weight: 800; color: #4A90D9; margin: 8px 0 2px; font-variant-numeric: tabular-nums; }
+#modeReaction .best-stat { font-size: 14px; color: #27ae60; font-weight: 600; margin-bottom: 4px; }
+#modeReaction .result-sub { color: #999; font-size: 13px; margin-bottom: 4px; }
+#modeReaction .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0 16px; text-align: left; }
+#modeReaction .stat-item { background: #fafafa; border-radius: 8px; padding: 8px 10px; }
+#modeReaction .stat-item .lbl { font-size: 11px; color: #999; }
+#modeReaction .stat-item .val { font-size: 16px; font-weight: 700; color: #333; }
+#modeReaction .round-list {
+  width: 100%; margin: 8px 0 16px; background: #fafafa; border-radius: 12px; padding: 8px 14px; text-align: left;
+}
+#modeReaction .round-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0; font-size: 13px; border-bottom: 1px solid #f0f0f0;
+}
+#modeReaction .round-row:last-child { border-bottom: none; }
+#modeReaction .round-row .rnum { color: #999; width: 30px; }
+#modeReaction .round-row .rtype { font-size: 11px; color: #999; flex: 1; text-align: center; }
+#modeReaction .round-row .rtype.n { color: #27ae60; }
+#modeReaction .round-row .rtype.t { color: #e74c3c; }
+#modeReaction .round-row .rtype.m { color: #e67e22; }
+#modeReaction .round-row .rtime { font-weight: 600; width: 55px; text-align: right; }
+#modeReaction .round-row .rtime.fast { color: #27ae60; }
+#modeReaction .round-row .rtime.good { color: #4A90D9; }
+#modeReaction .round-row .rtime.ok { color: #e67e22; }
+#modeReaction .round-row .rtime.slow { color: #e74c3c; }
+/* Endless details in result */
+#modeReaction .result-endless-stats { margin: 8px 0 12px; padding: 10px; background: #fafafa; border-radius: 12px; text-align: left; }
+#modeReaction .result-endless-stats .row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+#modeReaction .result-endless-stats .row .l { color: #999; }
+#modeReaction .result-endless-stats .row .v { color: #333; font-weight: 600; }
+
+/* =============================================
+   MATH MODE
+   ============================================= */
+#modeMath .subtitle { text-align: center; color: #999; font-size: 12px; margin-bottom: 8px; }
+#modeMath { flex: 1; display: none; flex-direction: column; }
+#modeMath.active { display: flex; }
+#modeMath .math-area {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 16px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  min-height: 280px; padding: 20px;
+}
+#modeMath .equation {
+  font-size: 42px; font-weight: 900; color: #333; text-align: center;
+  margin-bottom: 24px; font-variant-numeric: tabular-nums;
+  transition: opacity 0.15s;
+}
+#modeMath .equation .operator { color: #4A90D9; margin: 0 6px; }
+#modeMath .equation .equals { color: #999; margin: 0 6px; }
+#modeMath .answer-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 300px;
+}
+#modeMath .answer-btn {
+  padding: 18px 0; border: 2px solid #e0e0e0; border-radius: 14px;
+  background: #fff; font-size: 26px; font-weight: 800; color: #333;
+  cursor: pointer; transition: all 0.1s; touch-action: manipulation;
+}
+#modeMath .answer-btn:active { transform: scale(0.93); background: #f0f4ff; border-color: #4A90D9; }
+#modeMath .answer-btn.correct-glow { background: #e8f5e9; border-color: #27ae60; color: #27ae60; }
+#modeMath .answer-btn.wrong-glow { background: #fde8e8; border-color: #e74c3c; color: #e74c3c; animation: shake 0.35s; }
+#modeMath .status-text {
+  font-size: 24px; font-weight: 800; color: #ccc; text-align: center; line-height: 1.6;
+}
+#modeMath .status-text .subtxt { font-size: 14px; font-weight: 400; color: #ccc; display: block; margin-top: 8px; }
+#modeMath .status-text.ready { color: #999; }
+#modeMath .status-text.waiting { color: #4A90D9; animation: pulse 0.6s ease-in-out infinite alternate; }
+#modeMath .progress-bar-wrap { width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
+#modeMath .progress-bar-fill { height: 100%; background: #8e44ad; border-radius: 2px; transition: width 0.3s; width: 0%; }
+#modeMath .result-time { font-size: 42px; font-weight: 800; color: #8e44ad; margin: 8px 0 2px; font-variant-numeric: tabular-nums; }
+#modeMath .result-stat { font-size: 14px; color: #27ae60; font-weight: 600; margin-bottom: 4px; }
+#modeMath .result-sub { color: #999; font-size: 13px; margin-bottom: 4px; }
+#modeMath .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0 16px; text-align: left; }
+#modeMath .stat-item { background: #fafafa; border-radius: 8px; padding: 8px 10px; }
+#modeMath .stat-item .lbl { font-size: 11px; color: #999; }
+#modeMath .stat-item .val { font-size: 16px; font-weight: 700; color: #333; }
+
+/* =============================================
+   TRAFFIC LIGHT MODE
+   ============================================= */
+#modeTraffic .subtitle { text-align: center; color: #999; font-size: 12px; margin-bottom: 8px; }
+#modeTraffic { flex: 1; display: none; flex-direction: column; }
+#modeTraffic.active { display: flex; }
+#modeTraffic .game-area {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 16px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  min-height: 280px; position: relative;
+}
+#modeTraffic .light-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+}
+#modeTraffic .light {
+  width: 150px; height: 150px; border-radius: 50%;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 900; color: rgba(255,255,255,0.8);
+  letter-spacing: 1px;
+}
+#modeTraffic .light.idle { background: #bdc3c7; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+#modeTraffic .light.red { background: #e74c3c; box-shadow: 0 4px 30px rgba(231,76,60,0.3); animation: lightPulse 1s ease-in-out infinite; }
+#modeTraffic .light.green { background: #27ae60; box-shadow: 0 4px 30px rgba(39,174,96,0.4); transform: scale(1.05); }
+#modeTraffic .light.early { background: #c0392b; box-shadow: 0 4px 30px rgba(192,57,43,0.4); animation: shake 0.4s; }
+@keyframes lightPulse { 0%,100% { box-shadow: 0 4px 20px rgba(231,76,60,0.3); } 50% { box-shadow: 0 4px 40px rgba(231,76,60,0.5); } }
+#modeTraffic .light-label {
+  font-size: 32px; font-weight: 900; color: #333; min-height: 44px;
+}
+#modeTraffic .light-label .sub { font-size: 16px; font-weight: 400; color: #999; display: block; margin-top: 4px; }
+#modeTraffic .light-label.early { color: #e74c3c; }
+#modeTraffic .light-label.ready { color: #27ae60; }
+#modeTraffic .progress-bar-wrap { width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
+#modeTraffic .progress-bar-fill { height: 100%; background: #e74c3c; border-radius: 2px; transition: width 0.3s; width: 0%; }
+#modeTraffic .round-selector { display: flex; gap: 4px; margin-bottom: 8px; }
+#modeTraffic .round-selector .rs-btn {
+  flex: 1; padding: 5px 0; border: 1.5px solid #ddd; border-radius: 6px;
+  background: #fff; font-size: 12px; font-weight: 600; color: #999;
+  cursor: pointer; transition: all 0.15s;
+}
+#modeTraffic .round-selector .rs-btn.active { border-color: #e74c3c; background: #fde8e8; color: #e74c3c; }
+#modeTraffic .round-selector .rs-btn:disabled { opacity: 0.3; pointer-events: none; }
+#modeTraffic .result-time { font-size: 42px; font-weight: 800; color: #27ae60; margin: 8px 0 2px; font-variant-numeric: tabular-nums; }
+#modeTraffic .result-stat { font-size: 14px; color: #e74c3c; font-weight: 600; margin-bottom: 4px; }
+#modeTraffic .result-sub { color: #999; font-size: 13px; margin-bottom: 4px; }
+#modeTraffic .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0 16px; text-align: left; }
+#modeTraffic .stat-item { background: #fafafa; border-radius: 8px; padding: 8px 10px; }
+#modeTraffic .stat-item .lbl { font-size: 11px; color: #999; }
+#modeTraffic .stat-item .val { font-size: 16px; font-weight: 700; color: #333; }
+
+/* =============================================
+   STROOP TEST
+   ============================================= */
+#modeStroop .subtitle { text-align: center; color: #999; font-size: 12px; margin-bottom: 8px; }
+#modeStroop { flex: 1; display: none; flex-direction: column; }
+#modeStroop.active { display: flex; }
+#modeStroop .game-area {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 16px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  min-height: 260px; padding: 16px;
+}
+#modeStroop .word-display { font-size: 58px; font-weight: 900; margin-bottom: 28px; min-height: 70px; letter-spacing: 4px; transition: opacity 0.1s; }
+#modeStroop .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 280px; }
+#modeStroop .color-btn {
+  padding: 14px 0; border: 2px solid #e0e0e0; border-radius: 12px;
+  background: #fff; font-size: 17px; font-weight: 700; cursor: pointer;
+  transition: all 0.1s; touch-action: manipulation;
+}
+#modeStroop .color-btn:active { transform: scale(0.93); }
+#modeStroop .color-btn.correct-glow { background: #e8f5e9; border-color: #27ae60; color: #27ae60 !important; }
+#modeStroop .color-btn.wrong-glow { background: #fde8e8; border-color: #e74c3c; color: #e74c3c !important; animation: shake 0.35s; }
+#modeStroop .status-text { font-size: 24px; font-weight: 800; color: #ccc; text-align: center; line-height: 1.6; }
+#modeStroop .status-text .subtxt { font-size: 14px; font-weight: 400; color: #ccc; display: block; margin-top: 8px; }
+#modeStroop .status-text.ready { color: #999; }
+#modeStroop .progress-bar-wrap { width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
+#modeStroop .progress-bar-fill { height: 100%; background: #9B59B6; border-radius: 2px; transition: width 0.3s; width: 0%; }
+#modeStroop .result-time { font-size: 42px; font-weight: 800; color: #9B59B6; margin: 8px 0 2px; font-variant-numeric: tabular-nums; }
+#modeStroop .result-stat { font-size: 14px; color: #27ae60; font-weight: 600; margin-bottom: 4px; }
+#modeStroop .result-sub { color: #999; font-size: 13px; margin-bottom: 4px; }
+#modeStroop .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0 16px; text-align: left; }
+#modeStroop .stat-item { background: #fafafa; border-radius: 8px; padding: 8px 10px; }
+#modeStroop .stat-item .lbl { font-size: 11px; color: #999; }
+#modeStroop .stat-item .val { font-size: 16px; font-weight: 700; color: #333; }
+
+/* =============================================
+   SIMON GAME
+   ============================================= */
+#modeSimon .subtitle { text-align: center; color: #999; font-size: 12px; margin-bottom: 8px; }
+#modeSimon { flex: 1; display: none; flex-direction: column; }
+#modeSimon.active { display: flex; }
+#modeSimon .game-area {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 16px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  min-height: 280px; padding: 16px;
+}
+#modeSimon .simon-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  width: 240px; height: 240px;
+}
+#modeSimon .simon-pad {
+  border-radius: 16px; cursor: pointer; transition: opacity 0.1s, transform 0.1s;
+  touch-action: manipulation; opacity: 0.5;
+}
+#modeSimon .simon-pad:active { transform: scale(0.92); }
+#modeSimon .simon-pad.lit { opacity: 1; transform: scale(1.02); }
+#modeSimon .simon-pad.p0 { background: #e74c3c; }
+#modeSimon .simon-pad.p1 { background: #27ae60; }
+#modeSimon .simon-pad.p2 { background: #4A90D9; }
+#modeSimon .simon-pad.p3 { background: #f1c40f; }
+#modeSimon .simon-pad.lit.p0 { box-shadow: 0 0 30px rgba(231,76,60,0.6); }
+#modeSimon .simon-pad.lit.p1 { box-shadow: 0 0 30px rgba(39,174,96,0.6); }
+#modeSimon .simon-pad.lit.p2 { box-shadow: 0 0 30px rgba(74,144,217,0.6); }
+#modeSimon .simon-pad.lit.p3 { box-shadow: 0 0 30px rgba(241,196,15,0.6); }
+#modeSimon .status-text {
+  font-size: 24px; font-weight: 800; color: #ccc; text-align: center; line-height: 1.6;
+}
+#modeSimon .status-text .subtxt { font-size: 14px; font-weight: 400; color: #999; display: block; margin-top: 8px; }
+#modeSimon .status-text.ready { color: #999; }
+#modeSimon .status-text.waiting { color: #f1c40f; animation: pulse 0.6s ease-in-out infinite alternate; }
+#modeSimon .info-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 8px 12px; background: #fff; border-radius: 10px; }
+#modeSimon .info-item { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+#modeSimon .info-label { font-size: 10px; color: #999; }
+#modeSimon .info-value { font-size: 18px; font-weight: 800; color: #333; font-variant-numeric: tabular-nums; }
+#modeSimon .result-time { font-size: 42px; font-weight: 800; color: #f1c40f; margin: 8px 0 2px; }
+#modeSimon .result-stat { font-size: 14px; color: #27ae60; font-weight: 600; margin-bottom: 4px; }
+#modeSimon .result-sub { color: #999; font-size: 13px; margin-bottom: 4px; }
+#modeSimon .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0 16px; text-align: left; }
+#modeSimon .stat-item { background: #fafafa; border-radius: 8px; padding: 8px 10px; }
+#modeSimon .stat-item .lbl { font-size: 11px; color: #999; }
+#modeSimon .stat-item .val { font-size: 16px; font-weight: 700; color: #333; }
+
+/* =============================================
+   CHOICE REACTION
+   ============================================= */
+#modeChoice .subtitle { text-align: center; color: #999; font-size: 12px; margin-bottom: 8px; }
+#modeChoice { flex: 1; display: none; flex-direction: column; }
+#modeChoice.active { display: flex; }
+#modeChoice .game-area {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  border-radius: 16px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  min-height: 280px; position: relative;
+}
+#modeChoice .choice-btn {
+  position: absolute; top: 50%; left: 50%;
+  width: 64px; height: 64px; border-radius: 50%;
+  margin-left: -32px; margin-top: -32px;
+  font-size: 13px;
+  border: 3px solid #e0e0e0; background: #f5f5f5; cursor: pointer;
+  transition: all 0.1s; touch-action: manipulation; font-weight: 700; font-size: 14px; color: #999;
+  display: flex; align-items: center; justify-content: center;
+}
+#modeChoice .choice-btn:active { transform: scale(0.9) !important; }
+#modeChoice .choice-btn:active { transform: scale(0.9); }
+#modeChoice .choice-btn.lit { background: #E67E22; border-color: #d35400; color: #fff; transform: scale(1.12); box-shadow: 0 0 25px rgba(230,126,34,0.5); }
+#modeChoice .choice-btn.hit { background: #27ae60; border-color: #1e8449; color: #fff; }
+#modeChoice .choice-btn.miss { animation: shake 0.35s; }
+#modeChoice .status-text {
+  font-size: 24px; font-weight: 800; color: #ccc; text-align: center; line-height: 1.6; z-index: 2; pointer-events: none;
+}
+#modeChoice .status-text .subtxt { font-size: 14px; font-weight: 400; color: #ccc; display: block; margin-top: 8px; }
+#modeChoice .status-text.ready { color: #999; }
+#modeChoice .progress-bar-wrap { width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
+#modeChoice .progress-bar-fill { height: 100%; background: #E67E22; border-radius: 2px; transition: width 0.3s; width: 0%; }
+#modeChoice .result-time { font-size: 42px; font-weight: 800; color: #E67E22; margin: 8px 0 2px; font-variant-numeric: tabular-nums; }
+#modeChoice .result-stat { font-size: 14px; color: #27ae60; font-weight: 600; margin-bottom: 4px; }
+#modeChoice .result-sub { color: #999; font-size: 13px; margin-bottom: 4px; }
+#modeChoice .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0 16px; text-align: left; }
+#modeChoice .stat-item { background: #fafafa; border-radius: 8px; padding: 8px 10px; }
+#modeChoice .stat-item .lbl { font-size: 11px; color: #999; }
+#modeChoice .stat-item .val { font-size: 16px; font-weight: 700; color: #333; }
+
+/* =============================================
+   NUMBER FLASH
+   ============================================= */
+#modeNumflash .subtitle { text-align: center; color: #999; font-size: 12px; margin-bottom: 8px; }
+#modeNumflash { flex: 1; display: none; flex-direction: column; }
+#modeNumflash.active { display: flex; }
+#modeNumflash .game-area {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 16px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  min-height: 260px; padding: 16px;
+}
+#modeNumflash .flash-num {
+  font-size: 64px; font-weight: 900; color: #1ABC9C; min-height: 80px;
+  letter-spacing: 8px; font-variant-numeric: tabular-nums;
+  transition: opacity 0.08s;
+}
+#modeNumflash .flash-num.hidden { opacity: 0; }
+#modeNumflash .nf-timer-wrap { width: 180px; height: 4px; background: #eee; border-radius: 2px; margin-bottom: 12px; overflow: hidden; }
+#modeNumflash .nf-timer-fill { height: 100%; background: #1ABC9C; border-radius: 2px; width: 100%; }
+#modeNumflash .num-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 280px; }
+#modeNumflash .num-btn {
+  padding: 16px 0; border: 2px solid #e0e0e0; border-radius: 12px;
+  background: #fff; font-size: 22px; font-weight: 800; color: #333; cursor: pointer;
+  transition: all 0.1s; touch-action: manipulation; font-variant-numeric: tabular-nums;
+}
+#modeNumflash .num-btn:active { transform: scale(0.93); }
+#modeNumflash .num-btn.correct-glow { background: #e8f5e9; border-color: #27ae60; color: #27ae60; }
+#modeNumflash .num-btn.wrong-glow { background: #fde8e8; border-color: #e74c3c; color: #e74c3c; animation: shake 0.35s; }
+#modeNumflash .status-text { font-size: 24px; font-weight: 800; color: #ccc; text-align: center; line-height: 1.6; }
+#modeNumflash .status-text .subtxt { font-size: 14px; font-weight: 400; color: #ccc; display: block; margin-top: 8px; }
+#modeNumflash .status-text.ready { color: #999; }
+#modeNumflash .progress-bar-wrap { width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
+#modeNumflash .progress-bar-fill { height: 100%; background: #1ABC9C; border-radius: 2px; transition: width 0.3s; width: 0%; }
+#modeNumflash .result-time { font-size: 42px; font-weight: 800; color: #1ABC9C; margin: 8px 0 2px; font-variant-numeric: tabular-nums; }
+#modeNumflash .result-stat { font-size: 14px; color: #27ae60; font-weight: 600; margin-bottom: 4px; }
+#modeNumflash .result-sub { color: #999; font-size: 13px; margin-bottom: 4px; }
+#modeNumflash .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0 16px; text-align: left; }
+#modeNumflash .stat-item { background: #fafafa; border-radius: 8px; padding: 8px 10px; }
+#modeNumflash .stat-item .lbl { font-size: 11px; color: #999; }
+#modeNumflash .stat-item .val { font-size: 16px; font-weight: 700; color: #333; }
+
+/* =============================================
+   CHANGE BLINDNESS
+   ============================================= */
+#modeChange .subtitle { text-align: center; color: #999; font-size: 12px; margin-bottom: 8px; }
+#modeChange { flex: 1; display: none; flex-direction: column; }
+#modeChange.active { display: flex; }
+#modeChange .game-area {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 16px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  min-height: 260px; padding: 16px;
+}
+#modeChange .cb-grid {
+  display: grid; gap: 4px; width: 240px; height: 240px;
+}
+#modeChange .cb-cell {
+  border-radius: 6px; cursor: pointer; transition: transform 0.1s;
+  touch-action: manipulation; border: 2px solid transparent;
+}
+#modeChange .cb-cell:active { transform: scale(0.9); }
+#modeChange .cb-cell.correct { border-color: #27ae60; animation: pulse 0.3s; }
+#modeChange .cb-cell.wrong { border-color: #e74c3c; animation: shake 0.35s; }
+#modeChange .cb-cell.highlight { border-color: #fff; box-shadow: 0 0 12px rgba(52,152,219,0.5); }
+#modeChange .status-text { font-size: 24px; font-weight: 800; color: #ccc; text-align: center; line-height: 1.6; }
+#modeChange .status-text .subtxt { font-size: 14px; font-weight: 400; color: #ccc; display: block; margin-top: 8px; }
+#modeChange .status-text.ready { color: #999; }
+#modeChange .status-text.waiting { color: #3498DB; animation: pulse 0.6s ease-in-out infinite alternate; }
+#modeChange .progress-bar-wrap { width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
+#modeChange .progress-bar-fill { height: 100%; background: #3498DB; border-radius: 2px; transition: width 0.3s; width: 0%; }
+#modeChange .result-time { font-size: 42px; font-weight: 800; color: #3498DB; margin: 8px 0 2px; font-variant-numeric: tabular-nums; }
+#modeChange .result-stat { font-size: 14px; color: #27ae60; font-weight: 600; margin-bottom: 4px; }
+#modeChange .result-sub { color: #999; font-size: 13px; margin-bottom: 4px; }
+#modeChange .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0 16px; text-align: left; }
+#modeChange .stat-item { background: #fafafa; border-radius: 8px; padding: 8px 10px; }
+#modeChange .stat-item .lbl { font-size: 11px; color: #999; }
+/* Mute + Help + Pause + Stats */
+.mute-btn {
+  width: 34px; height: 34px; border: none; border-radius: 50%;
+  background: #f0f0f0; font-size: 16px; cursor: pointer; transition: all 0.2s;
+  display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: middle; margin-left: 6px;
+}
+.mute-btn.muted { opacity: 0.4; background: #e8e8e8; }
+.help-trigger {
+  font-size: 14px; cursor: pointer; opacity: 0.5; transition: opacity 0.2s;
+  vertical-align: middle; margin-left: 4px;
+}
+.help-trigger:hover { opacity: 1; }
+.help-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4); align-items: center; justify-content: center; z-index: 200;
+}
+.help-overlay.show { display: flex; }
+.help-card {
+  background: #fff; border-radius: 24px; padding: 28px 24px 20px;
+  width: 310px; max-height: 80vh; overflow-y: auto;
+  animation: slideUp 0.3s ease-out; text-align: left;
+}
+.help-card h3 { font-size: 18px; color: #333; margin-bottom: 12px; text-align: center; }
+.help-card p { font-size: 14px; color: #666; line-height: 1.8; margin-bottom: 6px; }
+.help-card ul { padding-left: 18px; margin: 6px 0 10px; }
+.help-card li { font-size: 13px; color: #666; line-height: 1.8; }
+.pause-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55); align-items: center; justify-content: center;
+  z-index: 150; cursor: pointer; flex-direction: column;
+}
+.pause-overlay.show { display: flex; }
+.pause-overlay .pause-icon { font-size: 52px; margin-bottom: 10px; }
+.pause-overlay .pause-tip { font-size: 16px; color: rgba(255,255,255,0.7); margin-top: 8px; }
+
+/* Stats panel */
+#modeStats { display: none; }
+#modeStats.active { display: block; }
+#modeStats .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+#modeStats .stat-card {
+  background: #fff; border-radius: 14px; padding: 14px 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04); text-align: center;
+}
+#modeStats .stat-card .emoji { font-size: 24px; margin-bottom: 4px; }
+#modeStats .stat-card .name { font-size: 12px; color: #999; margin-bottom: 2px; }
+#modeStats .stat-card .value { font-size: 20px; font-weight: 800; color: #333; }
+#modeStats .stat-card .sub { font-size: 11px; color: #ccc; margin-top: 2px; }
+#modeStats .stat-card.empty { opacity: 0.4; }
+#modeStats .stat-card.empty .value { font-size: 14px; color: #ccc; }
+#modeStats .reset-link {
+  text-align: center; font-size: 12px; color: #ccc;
+  cursor: pointer; padding: 8px; transition: color 0.2s;
+}
+#modeStats .reset-link:hover { color: #e74c3c; }
+.pause-global-btn { cursor: pointer; color: #999; font-size: 11px; }
+.pause-global-btn:hover { color: #4A90D9; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="app-header"><h1>🧠 脑力训练<button class="mute-btn" id="muteBtn">🔊</button></h1></div>
+
+  <div class="mode-tabs">
+    <button class="mode-tab active" data-mode="schulte">🔢 舒尔特方格</button>
+    <button class="mode-tab" data-mode="reaction">⚡ 反应力训练</button>
+    <button class="mode-tab" data-mode="math">🧮 速算反应</button>
+    <button class="mode-tab" data-mode="traffic">🚦 红绿灯</button>
+    <button class="mode-tab" data-mode="stroop">🎨 Stroop</button>
+    <button class="mode-tab" data-mode="simon">🔴 西蒙</button>
+    <button class="mode-tab" data-mode="choice">🎯 选择反应</button>
+    <button class="mode-tab" data-mode="numflash">🔢 数字闪现</button>
+    <button class="mode-tab" data-mode="change">👀 变化盲视</button>
+    <button class="mode-tab" data-mode="stats">📊 记录</button>
+  </div>
+
+  <!-- ==================== SCHULTE MODE ==================== -->
+  <div class="mode-panel active" id="modeSchulte">
+    <p class="subtitle">从 1 开始点 · 越快越好 · 连击加分<span class="help-trigger" data-help="schulte">❓</span></p>
+    <div class="sub-mode-bar">
+      <button class="sub-mode-btn active" data-smode="classic">经典模式</button>
+      <button class="sub-mode-btn" data-smode="endless">无尽模式</button>
+    </div>
+
+    <div class="difficulty-bar">
+      <button class="diff-btn" data-size="3">3×3</button>
+      <button class="diff-btn active" data-size="4">4×4</button>
+      <button class="diff-btn" data-size="5">5×5</button>
+      <button class="diff-btn" data-size="6">6×6</button>
+    </div>
+
+    <div class="info-bar">
+      <div class="info-item">
+        <span class="info-label" id="sTimerLabel">⏱ 用时</span>
+        <span class="info-value" id="sTimer">0.00s</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🔥 连击</span>
+        <span class="info-value" id="sCombo" style="font-size:16px">0</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label" id="sThirdLabel">❌ 失误</span>
+        <span class="info-value" id="sThird">0</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label" id="sFourthLabel">🏆 最佳</span>
+        <span class="info-value best" id="sBest">--</span>
+      </div>
+    </div>
+
+    <div class="grid-wrapper">
+      <div class="grid" id="sGrid"></div>
+    </div>
+
+    <div class="status-area">
+      <span class="next-num">下一个：<strong id="sNext">-</strong></span>
+    </div>
+    <div class="status-extra" id="sStatusExtra"></div>
+
+    <div class="btn-group" style="margin-top:6px">
+      <button class="btn btn-primary" id="sBtnStart">开始</button>
+      <button class="btn btn-secondary" id="sBtnReset">↻ 重排</button>
+    </div>
+  </div>
+
+  <!-- ==================== REACTION MODE ==================== -->
+  <div class="mode-panel" id="modeReaction">
+    <p class="subtitle">看到目标出现 → 立刻点击<span class="help-trigger" data-help="reaction">❓</span></p>
+
+    <!-- Sub-mode toggle -->
+    <div class="sub-mode-bar">
+      <button class="sub-mode-btn active" data-rmode="classic">经典模式</button>
+      <button class="sub-mode-btn" data-rmode="endless">无尽模式</button>
+    </div>
+
+    <div class="info-bar">
+      <div class="info-item">
+        <span class="info-label" id="rRoundLabel">轮次</span>
+        <span class="info-value" id="rRound">0 / 10</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">上次</span>
+        <span class="info-value" id="rLast" style="font-size:16px">--</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🏆 最佳</span>
+        <span class="info-value best" id="rBest">--</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🔥 连击</span>
+        <span class="info-value" id="rCombo" style="font-size:16px">0</span>
+      </div>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="rProgress"></div>
+    </div>
+
+    <div class="game-area" id="rGameArea">
+      <div class="status-text ready" id="rStatus">
+        点击下方开始
+        <span class="subtxt">目标出现后尽快点击</span>
+      </div>
+      <div class="target-wrap" style="display:none" id="rTargetWrap">
+        <div class="target" id="rTarget"></div>
+      </div>
+      <div class="result-flash" id="rFlash"></div>
+      <div class="combo-display" id="rComboFlash"></div>
+    </div>
+
+    <div style="text-align:center;margin-top:6px;min-height:22px">
+      <span class="target-indicator" id="rTypeIndicator">👆 普通</span>
+    </div>
+
+    <div class="btn-group" style="margin-top:4px">
+      <button class="btn btn-primary" id="rBtnStart">开始训练</button>
+      <button class="btn btn-secondary" id="rBtnReset">↻ 重置</button>
+    </div>
+  </div>
+
+  <!-- ==================== MATH MODE ==================== -->
+  <div class="mode-panel" id="modeMath">
+    <p class="subtitle">快速计算 · 越快越好 · 连击加分<span class="help-trigger" data-help="math">❓</span></p>
+
+    <div class="sub-mode-bar">
+      <button class="sub-mode-btn active" data-mmode="classic">经典模式</button>
+      <button class="sub-mode-btn" data-mmode="endless">无尽模式</button>
+    </div>
+
+    <div class="info-bar">
+      <div class="info-item">
+        <span class="info-label" id="mRoundLabel">轮次</span>
+        <span class="info-value" id="mRound">0 / 10</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">上次</span>
+        <span class="info-value" id="mLast" style="font-size:16px">--</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🏆 最佳</span>
+        <span class="info-value best" id="mBest">--</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🔥 连击</span>
+        <span class="info-value" id="mCombo" style="font-size:16px">0</span>
+      </div>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="mProgress"></div>
+    </div>
+
+    <div class="math-area" id="mMathArea">
+      <div class="status-text ready" id="mStatus">
+        点击下方开始
+        <span class="subtxt">快速选出正确答案</span>
+      </div>
+      <div class="equation" id="mEquation" style="display:none"></div>
+      <div class="answer-grid" id="mAnswerGrid" style="display:none"></div>
+    </div>
+
+    <div class="btn-group" style="margin-top:4px">
+      <button class="btn btn-primary" id="mBtnStart">开始挑战</button>
+      <button class="btn btn-secondary" id="mBtnReset">↻ 重置</button>
+    </div>
+  </div>
+
+  <!-- ==================== TRAFFIC LIGHT MODE ==================== -->
+  <div class="mode-panel" id="modeTraffic">
+    <p class="subtitle">红灯等 · 变绿立刻点 · 点早了算犯规<span class="help-trigger" data-help="traffic">❓</span></p>
+
+    <div class="sub-mode-bar">
+      <button class="sub-mode-btn active" data-tmode="classic">经典模式</button>
+      <button class="sub-mode-btn" data-tmode="endless">无尽模式</button>
+    </div>
+
+    <div class="round-selector" id="tRoundSelector">
+      <button class="rs-btn" data-tr="1">1次</button>
+      <button class="rs-btn" data-tr="3">3次</button>
+      <button class="rs-btn" data-tr="6">6次</button>
+      <button class="rs-btn active" data-tr="10">10次</button>
+    </div>
+
+    <div class="info-bar">
+      <div class="info-item">
+        <span class="info-label" id="tRoundLabel">轮次</span>
+        <span class="info-value" id="tRound">0 / 10</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">上次</span>
+        <span class="info-value" id="tLast" style="font-size:16px">--</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🏆 最佳</span>
+        <span class="info-value best" id="tBest">--</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🔥 连击</span>
+        <span class="info-value" id="tCombo" style="font-size:16px">0</span>
+      </div>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="tProgress"></div>
+    </div>
+
+    <div class="game-area" id="tGameArea">
+      <div class="light-wrap">
+        <div class="light idle" id="tLight"></div>
+        <div class="light-label" id="tLightLabel">
+          点击开始
+          <span class="sub">看灯的颜色点</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-group" style="margin-top:4px">
+      <button class="btn btn-primary" id="tBtnStart">开始测试</button>
+      <button class="btn btn-secondary" id="tBtnReset">↻ 重置</button>
+    </div>
+  </div>
+
+  <!-- ==================== STROOP TEST ==================== -->
+  <div class="mode-panel" id="modeStroop">
+    <p class="subtitle">说出字的<strong>颜色</strong>，不是字义 · 抗干扰训练<span class="help-trigger" data-help="stroop">❓</span></p>
+
+    <div class="sub-mode-bar">
+      <button class="sub-mode-btn active" data-smode2="classic">经典模式</button>
+      <button class="sub-mode-btn" data-smode2="endless">无尽模式</button>
+    </div>
+
+    <div class="info-bar">
+      <div class="info-item">
+        <span class="info-label" id="stRoundLabel">轮次</span>
+        <span class="info-value" id="stRound">0 / 10</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">上次</span>
+        <span class="info-value" id="stLast" style="font-size:16px">--</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🏆 最佳</span>
+        <span class="info-value best" id="stBest">--</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🔥 连击</span>
+        <span class="info-value" id="stCombo" style="font-size:16px">0</span>
+      </div>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="stProgress"></div>
+    </div>
+
+    <div class="game-area" id="stGameArea">
+      <div class="word-display" id="stWord" style="display:none"></div>
+      <div class="color-grid" id="stGrid" style="display:none"></div>
+      <div class="status-text ready" id="stStatus">
+        点击下方开始
+        <span class="subtxt">选择文字的<strong>颜色</strong></span>
+      </div>
+    </div>
+
+    <div class="btn-group" style="margin-top:4px">
+      <button class="btn btn-primary" id="stBtnStart">开始测试</button>
+      <button class="btn btn-secondary" id="stBtnReset">↻ 重置</button>
+    </div>
+  </div>
+
+  <!-- ==================== SIMON GAME ==================== -->
+  <div class="mode-panel" id="modeSimon">
+    <p class="subtitle">记住顺序 · 重复点亮<span class="help-trigger" data-help="simon">❓</span></p>
+
+    <div class="sub-mode-bar">
+      <button class="sub-mode-btn active" data-smode3="classic">经典模式</button>
+      <button class="sub-mode-btn" data-smode3="endless">无尽模式</button>
+    </div>
+
+    <div class="info-bar">
+      <div class="info-item">
+        <span class="info-label">🏆 最佳</span>
+        <span class="info-value best" id="sgBest">--</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">当前序列</span>
+        <span class="info-value" id="sgSeqLen">0</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">❤️ 生命</span>
+        <span class="info-value" id="sgLives">3</span>
+      </div>
+    </div>
+
+    <div class="game-area" id="sgGameArea">
+      <div class="status-text ready" id="sgStatus">
+        点击下方开始
+        <span class="subtxt">记住亮灯顺序</span>
+      </div>
+      <div class="simon-grid" id="sgGrid" style="display:none">
+        <div class="simon-pad p0" data-idx="0"></div>
+        <div class="simon-pad p1" data-idx="1"></div>
+        <div class="simon-pad p2" data-idx="2"></div>
+        <div class="simon-pad p3" data-idx="3"></div>
+      </div>
+    </div>
+
+    <div class="btn-group" style="margin-top:4px">
+      <button class="btn btn-primary" id="sgBtnStart">开始游戏</button>
+      <button class="btn btn-secondary" id="sgBtnReset">↻ 重置</button>
+    </div>
+  </div>
+
+  <!-- ==================== CHOICE REACTION ==================== -->
+  <div class="mode-panel" id="modeChoice">
+    <p class="subtitle">哪个亮了点哪个 · 越快越好<span class="help-trigger" data-help="choice">❓</span></p>
+
+    <div class="sub-mode-bar">
+      <button class="sub-mode-btn active" data-cmode="classic">经典模式</button>
+      <button class="sub-mode-btn" data-cmode="endless">无尽模式</button>
+    </div>
+
+    <div class="info-bar">
+      <div class="info-item">
+        <span class="info-label" id="crRoundLabel">轮次</span>
+        <span class="info-value" id="crRound">0 / 15</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">上次</span>
+        <span class="info-value" id="crLast" style="font-size:16px">--</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🏆 最佳</span>
+        <span class="info-value best" id="crBest">--</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">正确</span>
+        <span class="info-value" id="crCorrect" style="font-size:16px">0</span>
+      </div>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="crProgress"></div>
+    </div>
+
+    <div class="game-area" id="crGameArea">
+      <div class="status-text ready" id="crStatus">
+        点击下方开始
+        <span class="subtxt">点击亮起的按钮</span>
+      </div>
+    </div>
+
+    <div class="btn-group" style="margin-top:4px">
+      <button class="btn btn-primary" id="crBtnStart">开始训练</button>
+      <button class="btn btn-secondary" id="crBtnReset">↻ 重置</button>
+    </div>
+  </div>
+
+  <!-- ==================== NUMBER FLASH ==================== -->
+  <div class="mode-panel" id="modeNumflash">
+    <p class="subtitle">记住闪现的数字 · 从选项中选出<span class="help-trigger" data-help="numflash">❓</span></p>
+
+    <div class="sub-mode-bar">
+      <button class="sub-mode-btn active" data-nmode="classic">经典模式</button>
+      <button class="sub-mode-btn" data-nmode="endless">无尽模式</button>
+    </div>
+
+    <div class="info-bar">
+      <div class="info-item">
+        <span class="info-label" id="nfRoundLabel">轮次</span>
+        <span class="info-value" id="nfRound">0 / 10</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">正确</span>
+        <span class="info-value" id="nfCorrect" style="font-size:16px">0</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">❌</span>
+        <span class="info-value" id="nfWrong" style="font-size:16px;color:#999">0</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🔥 连击</span>
+        <span class="info-value" id="nfCombo" style="font-size:16px">0</span>
+      </div>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="nfProgress"></div>
+    </div>
+
+    <div class="game-area" id="nfGameArea">
+      <div class="flash-num hidden" id="nfNum"></div>
+      <div class="nf-timer-wrap"><div class="nf-timer-fill" id="nfTimer"></div></div>
+      <div class="num-options" id="nfOptions" style="display:none"></div>
+      <div class="status-text ready" id="nfStatus">
+        点击下方开始
+        <span class="subtxt">记住出现的数字</span>
+      </div>
+    </div>
+
+    <div class="btn-group" style="margin-top:4px">
+      <button class="btn btn-primary" id="nfBtnStart">开始测试</button>
+      <button class="btn btn-secondary" id="nfBtnReset">↻ 重置</button>
+    </div>
+  </div>
+
+  <!-- ==================== CHANGE BLINDNESS ==================== -->
+  <div class="mode-panel" id="modeChange">
+    <p class="subtitle">找出变化的那一块 · 颜色变了<span class="help-trigger" data-help="change">❓</span></p>
+
+    <div class="sub-mode-bar">
+      <button class="sub-mode-btn active" data-cbmode="classic">经典模式</button>
+      <button class="sub-mode-btn" data-cbmode="endless">无尽模式</button>
+    </div>
+
+    <div class="info-bar">
+      <div class="info-item">
+        <span class="info-label" id="cbRoundLabel">轮次</span>
+        <span class="info-value" id="cbRound">0 / 10</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">正确</span>
+        <span class="info-value" id="cbCorrect" style="font-size:16px">0</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">❌</span>
+        <span class="info-value" id="cbWrong" style="font-size:16px;color:#999">0</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🔥 连击</span>
+        <span class="info-value" id="cbCombo" style="font-size:16px">0</span>
+      </div>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="cbProgress"></div>
+    </div>
+
+    <div class="game-area" id="cbGameArea">
+      <div class="status-text ready" id="cbStatus">
+        点击下方开始
+        <span class="subtxt">记住颜色，找出变化</span>
+      </div>
+      <div class="cb-grid" id="cbGrid" style="display:none"></div>
+    </div>
+
+    <div class="btn-group" style="margin-top:4px">
+      <button class="btn btn-primary" id="cbBtnStart">开始测试</button>
+      <button class="btn btn-secondary" id="cbBtnReset">↻ 重置</button>
+    </div>
+  </div>
+
+  <!-- ==================== STATS ==================== -->
+  <div class="mode-panel" id="modeStats">
+    <p class="subtitle">各游戏最佳记录一览</p>
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="reset-link" id="statsReset">🗑️ 清除所有记录</div>
+  </div>
+
+  <div class="footer-text">每天练 5 分钟 · 提升注意力和反应力 <span class="pause-global-btn" id="globalPauseBtn" style="display:none">⏸️ 暂停</span></div>
+</div>
+
+<!-- ==================== SCHULTE RESULT ==================== -->
+<div class="result-overlay" id="sResultOverlay">
+  <div class="result-card">
+    <div class="emoji-big" id="sREmoji">🎉</div>
+    <h2 id="sRTitle">完成！</h2>
+    <div class="result-score" id="sRScore">0 分</div>
+    <div class="result-time" id="sRTime">0.00s</div>
+    <div class="result-sub" id="sRSub"></div>
+    <div class="comment" id="sRComment"></div>
+    <div class="new-best" id="sRNewBest" style="display:none">🏆 新纪录！</div>
+    <div class="result-wrong" id="sRWrong"></div>
+    <div class="result-endless-stats" id="sREndlessStats" style="display:none"></div>
+    <div class="tip" id="sRTip">
+      <div class="tip-collapse" id="sRTipToggle">▸ 提升建议</div>
+      <div class="tip-content" id="sRTipContent" style="display:none"><span id="sRTipText"></span></div>
+    </div>
+    <div class="record-list" id="sRRecords"></div>
+    <button class="btn btn-primary" id="sRBtnClose">再来一局</button>
+  </div>
+</div>
+
+<!-- ==================== REACTION RESULT ==================== -->
+<div class="result-overlay" id="rResultOverlay">
+  <div class="result-card">
+    <div class="emoji-big" id="rREmoji">🎉</div>
+    <h2 id="rRTitle">完成！</h2>
+    <div class="avg-time" id="rRAvg">0ms</div>
+    <div class="best-stat" id="rRBest">最佳 0ms</div>
+    <div class="result-sub" id="rRSub"></div>
+    <div class="comment" id="rRComment"></div>
+    <div class="new-best" id="rRNewBest" style="display:none">🏆 新纪录！</div>
+    <div class="stat-grid" id="rRStatGrid"></div>
+    <div class="round-list" id="rRList"></div>
+    <div class="result-endless-stats" id="rREndlessStats" style="display:none"></div>
+    <button class="btn btn-primary" id="rRBtnClose">再来一轮</button>
+  </div>
+</div>
+
+<!-- ==================== MATH RESULT ==================== -->
+<div class="result-overlay" id="mResultOverlay">
+  <div class="result-card">
+    <div class="emoji-big" id="mREmoji">🎉</div>
+    <h2 id="mRTitle">完成！</h2>
+    <div class="result-time" id="mRTime">0ms</div>
+    <div class="result-stat" id="mRStat">正确率 100%</div>
+    <div class="result-sub" id="mRSub"></div>
+    <div class="comment" id="mRComment"></div>
+    <div class="new-best" id="mRNewBest" style="display:none">🏆 新纪录！</div>
+    <div class="stat-grid" id="mRStatGrid"></div>
+    <button class="btn btn-primary" id="mRBtnClose">再来一局</button>
+  </div>
+</div>
+
+<!-- ==================== TRAFFIC RESULT ==================== -->
+<div class="result-overlay" id="tResultOverlay">
+  <div class="result-card">
+    <div class="emoji-big" id="tREmoji">🎉</div>
+    <h2 id="tRTitle">完成！</h2>
+    <div class="result-time" id="tRTime">0ms</div>
+    <div class="result-stat" id="tRStat">犯规 0 次</div>
+    <div class="result-sub" id="tRSub"></div>
+    <div class="comment" id="tRComment"></div>
+    <div class="new-best" id="tRNewBest" style="display:none">🏆 新纪录！</div>
+    <div class="stat-grid" id="tRStatGrid"></div>
+    <button class="btn btn-primary" id="tRBtnClose">再来一局</button>
+  </div>
+</div>
+
+<!-- ==================== STROOP RESULT ==================== -->
+<div class="result-overlay" id="stResultOverlay">
+  <div class="result-card">
+    <div class="emoji-big" id="stREmoji">🎉</div>
+    <h2 id="stRTitle">完成！</h2>
+    <div class="result-time" id="stRTime">0ms</div>
+    <div class="result-stat" id="stRStat">正确率 0%</div>
+    <div class="result-sub" id="stRSub"></div>
+    <div class="comment" id="stRComment"></div>
+    <div class="new-best" id="stRNewBest" style="display:none">🏆 新纪录！</div>
+    <div class="stat-grid" id="stRStatGrid"></div>
+    <button class="btn btn-primary" id="stRBtnClose">再来一局</button>
+  </div>
+</div>
+
+<!-- ==================== SIMON RESULT ==================== -->
+<div class="result-overlay" id="sgResultOverlay">
+  <div class="result-card">
+    <div class="emoji-big" id="sgREmoji">🎉</div>
+    <h2 id="sgRTitle">完成！</h2>
+    <div class="result-time" id="sgRTime">0 步</div>
+    <div class="result-stat" id="sgRStat">最高序列 0</div>
+    <div class="result-sub" id="sgRSub"></div>
+    <div class="comment" id="sgRComment"></div>
+    <div class="new-best" id="sgRNewBest" style="display:none">🏆 新纪录！</div>
+    <div class="stat-grid" id="sgRStatGrid"></div>
+    <button class="btn btn-primary" id="sgRBtnClose">再来一局</button>
+  </div>
+</div>
+
+<!-- ==================== CHOICE RESULT ==================== -->
+<div class="result-overlay" id="crResultOverlay">
+  <div class="result-card">
+    <div class="emoji-big" id="crREmoji">🎉</div>
+    <h2 id="crRTitle">完成！</h2>
+    <div class="result-time" id="crRTime">0ms</div>
+    <div class="result-stat" id="crRStat">正确率 0%</div>
+    <div class="result-sub" id="crRSub"></div>
+    <div class="comment" id="crRComment"></div>
+    <div class="new-best" id="crRNewBest" style="display:none">🏆 新纪录！</div>
+    <div class="stat-grid" id="crRStatGrid"></div>
+    <button class="btn btn-primary" id="crRBtnClose">再来一局</button>
+  </div>
+</div>
+
+<!-- ==================== NUMBER FLASH RESULT ==================== -->
+<div class="result-overlay" id="nfResultOverlay">
+  <div class="result-card">
+    <div class="emoji-big" id="nfREmoji">🎉</div>
+    <h2 id="nfRTitle">完成！</h2>
+    <div class="result-time" id="nfRTime">0ms</div>
+    <div class="result-stat" id="nfRStat">正确率 0%</div>
+    <div class="result-sub" id="nfRSub"></div>
+    <div class="comment" id="nfRComment"></div>
+    <div class="new-best" id="nfRNewBest" style="display:none">🏆 新纪录！</div>
+    <div class="stat-grid" id="nfRStatGrid"></div>
+    <button class="btn btn-primary" id="nfRBtnClose">再来一局</button>
+  </div>
+</div>
+
+<!-- ==================== CHANGE BLINDNESS RESULT ==================== -->
+<div class="result-overlay" id="cbResultOverlay">
+  <div class="result-card">
+    <div class="emoji-big" id="cbREmoji">🎉</div>
+    <h2 id="cbRTitle">完成！</h2>
+    <div class="result-time" id="cbRTime">0ms</div>
+    <div class="result-stat" id="cbRStat">正确率 0%</div>
+    <div class="result-sub" id="cbRSub"></div>
+    <div class="comment" id="cbRComment"></div>
+    <div class="new-best" id="cbRNewBest" style="display:none">🏆 新纪录！</div>
+    <div class="stat-grid" id="cbRStatGrid"></div>
+    <button class="btn btn-primary" id="cbRBtnClose">再来一局</button>
+  </div>
+</div>
+
+<!-- ==================== HELP OVERLAY ==================== -->
+<div class="help-overlay" id="helpOverlay">
+  <div class="help-card">
+    <h3 id="helpTitle">规则说明</h3>
+    <div id="helpBody"></div>
+    <button class="btn btn-primary" id="helpBtnClose" style="margin-top:12px">知道了</button>
+  </div>
+</div>
+
+<!-- ==================== PAUSE OVERLAY ==================== -->
+<div class="pause-overlay" id="pauseOverlay">
+  <div class="pause-icon">⏸️</div>
+  <div class="pause-tip">点击继续</div>
+</div>
+
+<script>
+// =============================================
+// SHARED AUDIO & UTILITIES
+// =============================================
+const ACtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+function initAudio() {
+  if (!audioCtx) audioCtx = new ACtx();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playTone(freq, dur, type, vol) {
+  try {
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+function vibrate(pat) { try { navigator.vibrate && navigator.vibrate(pat); } catch(e) {} }
+
+function showPopup(text, x, y, cls) {
+  const el = document.createElement('div');
+  el.className = 'score-popup' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 700);
+}
+
+// =============================================
+// GLOBAL: MUTE, HELP, STATS, PAUSE
+// =============================================
+let muted = false;
+function toggleMute() {
+  muted = !muted;
+  document.getElementById('muteBtn').textContent = muted ? '🔇' : '🔊';
+  document.getElementById('muteBtn').classList.toggle('muted', muted);
+}
+// Wrap playTone & vibrate with mute check
+const _origPlayTone = playTone;
+playTone = function(f,d,t,v) { if (!muted) _origPlayTone(f,d,t,v); };
+const _origVibrate = vibrate;
+vibrate = function(p) { if (!muted) _origVibrate(p); };
+document.getElementById('muteBtn').addEventListener('click', toggleMute);
+
+// Help overlay
+const helpTexts = {
+  schulte: { title: '🔢 舒尔特方格', body: '<p>从 1 开始按顺序依次点击方格中的数字。</p><ul><li>越快越好，用时越短说明注意力越集中</li><li>连续正确点击产生连击，连击有额外加分</li><li>点错会打断连击，要重新累积</li><li><strong>经典模式</strong>：完成一张方格结算成绩</li><li><strong>无尽模式</strong>：每完成一张自动升级更大方格</li></ul>' },
+  reaction: { title: '⚡ 反应力训练', body: '<p>目标出现后立刻点击！</p><ul><li>🟢 <strong>绿色普通目标</strong>：尽快点击</li><li>🔴 <strong>红色陷阱</strong>：不要点！等它自己消失</li><li>🟣 <strong>紫色闪光目标</strong>：会快速消失，要更快！</li><li>连击越高分越多，点错或太慢都会断连击</li></ul>' },
+  math: { title: '🧮 速算反应', body: '<p>快速计算出正确答案，从四个选项中选择。</p><ul><li>难度会逐步提升：加减 → 乘 → 除</li><li><strong>经典模式</strong>：10 轮结算</li><li><strong>无尽模式</strong>：持续挑战，难度越来越高</li><li>连击越高分数越多</li></ul>' },
+  traffic: { title: '🚦 红绿灯反应', body: '<p>红灯亮起时等待，变绿灯后立刻点击！</p><ul><li>红灯期间点击 = <strong>犯规</strong>，该轮重来</li><li>每次变绿灯的等待时间是随机的</li><li>可选的轮次：1/3/6/10 次</li><li>反应越快、犯规越少，评价越高</li></ul>' },
+  stroop: { title: '🎨 Stroop 测试', body: '<p>看字的<strong>颜色</strong>，不是字义！</p><ul><li>例如：<strong style="color:#4A90D9">红</strong> 字显示为蓝色，正确答案是 "蓝色"</li><li>字义和颜色的冲突会干扰大脑，需要抗干扰能力</li><li>越快越准说明大脑抑制干扰的能力越强</li></ul>' },
+  simon: { title: '🔴 西蒙游戏', body: '<p>记住四个色块点亮的顺序，按相同顺序点击。</p><ul><li>每轮增加一个步骤，序列越来越长</li><li><strong>经典模式</strong>：3 条命，点错扣一条</li><li><strong>无尽模式</strong>：只有 1 条命</li><li>看你最多能记住多少步！</li></ul>' },
+  choice: { title: '🎯 选择反应', body: '<p>多个按钮围绕排列，其中一个会亮起，尽快点击它！</p><ul><li>比简单反应更难：需要先判断哪个是目标</li><li><strong>经典模式</strong>：4 个按钮，15 轮</li><li><strong>无尽模式</strong>：按钮更多、等待时间更短</li></ul>' },
+  numflash: { title: '🔢 数字闪现', body: '<p>一个数字会短暂闪现，记住它，从四个选项中选出。</p><ul><li>顶部进度条显示剩余时间</li><li><strong>经典模式</strong>：10 轮，4 位数</li><li><strong>无尽模式</strong>：位数越来越多，闪现越来越快</li><li>考验视觉短期记忆能力</li></ul>' },
+  change: { title: '👀 变化盲视', body: '<p>记住 4×4 彩色方格的排列，短暂闪烁后有一格颜色变了，找出它！</p><ul><li>这是心理学经典实验"变化盲视"的游戏版</li><li>人眼对颜色的变化并不像想象中那么敏感</li><li>系统性地扫描对比比凭感觉更有效</li></ul>' },
+};
+
+function showHelp(game) {
+  const h = helpTexts[game];
+  if (!h) return;
+  document.getElementById('helpTitle').textContent = h.title;
+  document.getElementById('helpBody').innerHTML = h.body;
+  document.getElementById('helpOverlay').classList.add('show');
+}
+document.getElementById('helpBtnClose').addEventListener('click', () => {
+  document.getElementById('helpOverlay').classList.remove('show');
+});
+// Help trigger clicks
+document.querySelectorAll('.help-trigger').forEach(el => {
+  el.addEventListener('click', () => showHelp(el.dataset.help));
+});
+
+// Stats display
+const statsDefs = [
+  ['schulteRecords', '🔢', '舒尔特方格', v => { const o = JSON.parse(v||'{}'); const best = Math.min(...Object.values(o).filter(x=>x)); return isFinite(best) ? best.toFixed(2) + 's' : null; }, v => { const o = JSON.parse(v||'{}'); return '4×4: ' + (o['4x4'] ? o['4x4'].toFixed(2)+'s' : '--'); }],
+  ['reactionBest', '⚡', '反应力训练', v => v ? v + 'ms' : null],
+  ['mathBest', '🧮', '速算反应', v => v ? v + 'ms' : null],
+  ['trafficBest', '🚦', '红绿灯反应', v => v ? v + 'ms' : null],
+  ['stroopBest', '🎨', 'Stroop', v => v ? v + 'ms' : null],
+  ['simonBest', '🔴', '西蒙游戏', v => v ? v + ' 步' : null],
+  ['choiceBest', '🎯', '选择反应', v => v ? v + 'ms' : null],
+  ['numflashBest', '🔢', '数字闪现', v => v ? v + ' 轮' : null],
+  ['changeBest', '👀', '变化盲视', v => v ? v + 'ms' : null],
+];
+
+function renderStats() {
+  const grid = document.getElementById('statsGrid');
+  grid.innerHTML = statsDefs.map(([key, emoji, name, fmt, sub]) => {
+    const raw = localStorage.getItem(key);
+    const val = fmt(raw);
+    return `<div class="stat-card${val === null ? ' empty' : ''}">
+      <div class="emoji">${emoji}</div>
+      <div class="name">${name}</div>
+      <div class="value">${val !== null ? val : '暂无记录'}</div>
+      ${sub ? '<div class="sub">' + sub(raw) + '</div>' : ''}
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('statsReset').addEventListener('click', () => {
+  if (confirm('确定要清除所有游戏记录吗？')) {
+    statsDefs.forEach(([key]) => localStorage.removeItem(key));
+    renderStats();
+  }
+});
+
+// Pause overlay
+let isPaused = false;
+let activeGameNext = null;
+const pauseOverlay = document.getElementById('pauseOverlay');
+const globalPauseBtn = document.getElementById('globalPauseBtn');
+
+function showPauseBtn(show) { globalPauseBtn.style.display = show ? 'inline' : 'none'; }
+
+globalPauseBtn.addEventListener('click', () => {
+  isPaused = true;
+  pauseOverlay.classList.add('show');
+  // Clear all timers
+  if (s.timerId) { clearInterval(s.timerId); s.timerId = null; }
+  if (r.timerId) { clearTimeout(r.timerId); r.timerId = null; }
+  if (m.phase !== 'idle') { m.phase = 'paused'; }
+  if (t.timerId) { clearTimeout(t.timerId); t.timerId = null; }
+  if (cr.timerId) { clearTimeout(cr.timerId); cr.timerId = null; }
+  // Other games use phase checks
+  if (st.phase !== 'idle') st.phase = 'paused';
+  if (nf.phase !== 'idle') nf.phase = 'paused';
+  if (cb.phase !== 'idle') cb.phase = 'paused';
+});
+
+pauseOverlay.addEventListener('click', () => {
+  isPaused = false;
+  pauseOverlay.classList.remove('show');
+  if (activeGameNext) setTimeout(activeGameNext, 300);
+});
+
+// =============================================
+// SCHULTE GRID
+// =============================================
+const s = {
+  size: 4,
+  numbers: [],
+  current: 0,
+  playing: false,
+  finished: false,
+  endless: false,
+  startTime: null,
+  timerId: null,
+  elapsed: 0,
+  wrongCount: 0,
+  combo: 0,
+  maxCombo: 0,
+  score: 0,
+  bestRecords: JSON.parse(localStorage.getItem('schulteRecords') || '{}'),
+  // Endless specific
+  gridsCompleted: 0,
+  totalScore: 0,
+  totalWrong: 0,
+  totalNums: 0,
+  endlessStartSize: 4,
+  maxGridSize: 8,
+  gridStartTime: null,
+  gridTimes: [],
+};
+
+const sGrid = document.getElementById('sGrid');
+const sTimer = document.getElementById('sTimer');
+const sCombo = document.getElementById('sCombo');
+const sThird = document.getElementById('sThird');
+const sNext = document.getElementById('sNext');
+const sBest = document.getElementById('sBest');
+const sStatusExtra = document.getElementById('sStatusExtra');
+const sTimerLabel = document.getElementById('sTimerLabel');
+const sThirdLabel = document.getElementById('sThirdLabel');
+const sFourthLabel = document.getElementById('sFourthLabel');
+
+function sShuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function sGen(size) { return sShuffle(Array.from({ length: size * size }, (_, i) => i + 1)); }
+function sTotal() { return s.size * s.size; }
+
+function sRender() {
+  sGrid.style.gridTemplateColumns = `repeat(${s.size}, 1fr)`;
+  sGrid.style.setProperty('--size', s.size);
+  sGrid.innerHTML = s.numbers.map((num) => {
+    const done = s.finished ? true : (s.playing && num < s.current);
+    const isNext = s.playing && !s.finished && num === s.current;
+    const cls = ['cell'];
+    if (done) cls.push('done');
+    if (isNext) cls.push('next-target');
+    return `<div class="${cls.join(' ')}" data-num="${num}">${num}</div>`;
+  }).join('');
+  sUpdateUI();
+}
+
+function sUpdateUI() {
+  const total = sTotal();
+  if (s.endless) {
+    sTimer.textContent = s.elapsed > 0 ? s.elapsed.toFixed(1) + 's' : '0.0s';
+    sTimerLabel.textContent = '⏱ 总用时';
+    sThirdLabel.textContent = '📋 已完';
+    sThird.textContent = s.gridsCompleted + '张';
+    sFourthLabel.textContent = '📐 当前';
+    const sz = s.size;
+    const best = s.bestRecords[`${sz}x${sz}`];
+    sBest.textContent = best ? best.toFixed(2) + 's' : '--';
+  } else {
+    sTimer.textContent = s.elapsed > 0 ? s.elapsed.toFixed(2) + 's' : '0.00s';
+    sTimerLabel.textContent = '⏱ 用时';
+    sThirdLabel.textContent = '❌ 失误';
+    sThird.textContent = s.wrongCount > 0 ? String(s.wrongCount) : '0';
+    sFourthLabel.textContent = '🏆 最佳';
+    const key = `${s.size}x${s.size}`;
+    const best = s.bestRecords[key];
+    sBest.textContent = best ? best.toFixed(2) + 's' : '--';
+  }
+  sCombo.textContent = s.combo > 0 ? s.combo + (s.combo >= 5 ? ' 🔥' : '') : '0';
+  sNext.textContent = (s.playing && !s.finished && s.current <= total) ? String(s.current) : '-';
+
+  // Status extra line
+  if (s.endless && s.playing) {
+    sStatusExtra.textContent = `第 ${s.gridsCompleted + 1} 张 · ${s.size}×${s.size} · 总分 ${s.totalScore + s.score}`;
+  } else if (s.endless) {
+    sStatusExtra.textContent = s.gridsCompleted > 0 ? `共完成 ${s.gridsCompleted} 张 · 总分 ${s.totalScore}` : '';
+  } else {
+    sStatusExtra.textContent = '';
+  }
+}
+
+function sUpdateTimer() {
+  if (!s.startTime) return;
+  s.elapsed = (Date.now() - s.startTime) / 1000;
+  sTimer.textContent = s.endless ? s.elapsed.toFixed(1) + 's' : s.elapsed.toFixed(2) + 's';
+}
+
+function sPlayHit(combo) {
+  const base = 660 + Math.min(combo, 20) * 15;
+  playTone(base, 0.06, 'sine', 0.12);
+  setTimeout(() => playTone(base * 1.25, 0.05, 'sine', 0.08), 25);
+  if (combo > 5) setTimeout(() => playTone(base * 1.5, 0.04, 'sine', 0.05), 45);
+}
+function sPlayWrong() { playTone(180, 0.18, 'sawtooth', 0.06); }
+function sPlayComplete() {
+  [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.15, 'sine', 0.1), i * 100));
+}
+function sPlayGridDone() {
+  [784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.1, 'sine', 0.08), i * 80));
+}
+
+function sAddFlare(cell, wrong) {
+  const el = document.createElement('div');
+  el.className = 'hit-flare' + (wrong ? ' wrong' : '');
+  cell.appendChild(el);
+  setTimeout(() => el.remove(), 350);
+}
+
+function sHighlightNext() {
+  const total = sTotal();
+  if (s.current > total) return;
+  const cells = sGrid.querySelectorAll('.cell');
+  for (const c of cells) {
+    c.classList.toggle('next-target', parseInt(c.dataset.num) === s.current);
+  }
+}
+
+function sStartClassic() {
+  if (s.playing) return;
+  initAudio();
+  s.numbers = sGen(s.size);
+  s.current = 1;
+  s.playing = true;
+  s.finished = false;
+  s.wrongCount = 0;
+  s.combo = 0;
+  s.maxCombo = 0;
+  s.score = 0;
+  s.startTime = Date.now();
+  s.elapsed = 0;
+
+  if (s.timerId) clearInterval(s.timerId);
+  s.timerId = setInterval(sUpdateTimer, 50);
+
+  document.getElementById('sBtnStart').textContent = '进行中...';
+  document.querySelectorAll('#modeSchulte .diff-btn').forEach(b => b.disabled = true);
+  sRender();
+}
+
+function sStartEndless() {
+  if (s.playing) return;
+  initAudio();
+  showPauseBtn(true);
+  // Determine starting size from selected difficulty
+  const activeDiff = document.querySelector('#modeSchulte .diff-btn.active');
+  s.endlessStartSize = parseInt(activeDiff.dataset.size);
+  s.size = s.endlessStartSize;
+
+  // Reset endless stats
+  s.gridsCompleted = 0;
+  s.totalScore = 0;
+  s.totalWrong = 0;
+  s.totalNums = 0;
+  s.gridTimes = [];
+  s.wrongCount = 0;
+  s.combo = 0;
+  s.maxCombo = 0;
+  s.score = 0;
+
+  s.numbers = sGen(s.size);
+  s.current = 1;
+  s.playing = true;
+  s.finished = false;
+  s.startTime = Date.now();
+  s.elapsed = 0;
+  s.gridStartTime = Date.now();
+
+  if (s.timerId) clearInterval(s.timerId);
+  s.timerId = setInterval(sUpdateTimer, 50);
+
+  document.getElementById('sBtnStart').textContent = '进行中...';
+  document.querySelectorAll('#modeSchulte .diff-btn').forEach(b => b.disabled = true);
+  sRender();
+}
+
+function sReset() {
+  showPauseBtn(false);
+  if (s.timerId) clearInterval(s.timerId);
+  s.playing = false;
+  s.finished = false;
+  s.current = 0;
+  s.startTime = null;
+  s.elapsed = 0;
+  s.wrongCount = 0;
+  s.combo = 0;
+  s.maxCombo = 0;
+  s.score = 0;
+  s.gridsCompleted = 0;
+  s.totalScore = 0;
+  s.totalWrong = 0;
+  s.totalNums = 0;
+  s.gridTimes = [];
+
+  s.numbers = sGen(s.size);
+  sTimer.textContent = '0.00s';
+  document.getElementById('sBtnStart').textContent = '开始';
+  document.querySelectorAll('#modeSchulte .diff-btn').forEach(b => b.disabled = false);
+  sStatusExtra.textContent = '';
+  sRender();
+}
+
+function sFinishClassic() {
+  if (s.timerId) clearInterval(s.timerId);
+  s.playing = false;
+  s.finished = true;
+
+  const ft = s.elapsed;
+  sTimer.textContent = ft.toFixed(2) + 's';
+  document.getElementById('sBtnStart').textContent = '再来一局';
+  document.querySelectorAll('#modeSchulte .diff-btn').forEach(b => b.disabled = false);
+
+  const key = `${s.size}x${s.size}`;
+  const isBest = !s.bestRecords[key] || ft < s.bestRecords[key];
+  if (isBest) {
+    s.bestRecords[key] = ft;
+    localStorage.setItem('schulteRecords', JSON.stringify(s.bestRecords));
+  }
+
+  s.score += s.maxCombo * 10;
+  sRender();
+  sShowResultClassic(ft, isBest);
+}
+
+function sNextGridEndless() {
+  if (isPaused) { activeGameNext = sNextGridEndless; return; }
+  // Record this grid's time
+  const gridTime = (Date.now() - s.gridStartTime) / 1000;
+  s.gridTimes.push(gridTime);
+
+  // Accumulate stats
+  s.totalScore += s.score;
+  s.totalWrong += s.wrongCount;
+  s.totalNums += sTotal();
+  s.gridsCompleted++;
+
+  // Size increase every 3 grids (up to max)
+  if (s.gridsCompleted % 3 === 0 && s.size < s.maxGridSize) {
+    s.size++;
+  }
+
+  // Reset for next grid
+  s.numbers = sGen(s.size);
+  s.current = 1;
+  s.wrongCount = 0;
+  s.score = 0;
+  s.gridStartTime = Date.now();
+
+  // Update difficulty buttons to reflect current size
+  document.querySelectorAll('#modeSchulte .diff-btn').forEach(b => {
+    const sz = parseInt(b.dataset.size);
+    b.classList.toggle('active', sz === s.size);
+  });
+
+  sPlayGridDone();
+  vibrate([5, 5, 5]);
+
+  sRender();
+}
+
+function sEndEndless() {
+  if (s.timerId) clearInterval(s.timerId);
+  s.playing = false;
+  s.finished = true;
+
+  const ft = (Date.now() - s.startTime) / 1000;
+  s.elapsed = ft;
+  sTimer.textContent = ft.toFixed(1) + 's';
+
+  document.getElementById('sBtnStart').textContent = '再来一局';
+  document.querySelectorAll('#modeSchulte .diff-btn').forEach(b => b.disabled = false);
+
+  sRender();
+  sShowResultEndless(ft);
+}
+
+// ---- Result displays ----
+function sShowResultClassic(time, isBest) {
+  const total = sTotal();
+  const perItem = time / total;
+  const wrong = s.wrongCount;
+  const maxC = s.maxCombo;
+
+  let emoji = '😤';
+  if (wrong > 3) emoji = '😅';
+  else if (perItem < 0.2) emoji = '🤯';
+  else if (perItem < 0.3) emoji = '🔥';
+  else if (perItem < 0.45 && wrong === 0) emoji = '⚡';
+  else if (perItem < 0.5) emoji = '🔥';
+  else if (perItem < 0.8) emoji = '👍';
+  else if (perItem < 1.2) emoji = '😅';
+  document.getElementById('sREmoji').textContent = emoji;
+
+  const titles = perItem < 0.2 ? ['⚡ 反应神了！','🤯 超神速度！','🔥 闪电侠！']
+    : perItem < 0.3 ? ['🔥 反应超快！','⚡ 手速惊人！','🎯 快到飞起！']
+    : perItem < 0.45 ? ['👍 反应不错！','🎯 又快又准！','🔥 手感火热！']
+    : perItem < 0.7 ? ['💪 继续加油！','👌 状态不错！','📈 还有提升空间！']
+    : perItem < 1.2 ? ['😅 需要多练练','🏋️ 慢慢来不急','📚 熟能生巧']
+    : ['😴 是不是困了？','☕ 提提神再来','💤 还没进入状态'];
+  document.getElementById('sRTitle').textContent = titles[Math.floor(Math.random() * titles.length)];
+
+  let comment = '';
+  if (perItem < 0.2 && wrong === 0) comment = ['完美表现！零失误 + 超快反应，你的注意力和反应力已经是顶尖水平！','无可挑剔！大脑和手指的配合堪称完美！','惊人表现！继续保持！'][Math.floor(Math.random()*3)];
+  else if (perItem < 0.3 && wrong === 0) comment = ['零失误完成！你的专注力和反应速度都非常优秀！','又快又准！手眼协调能力很强！','出色的表现！离顶级不远了！'][Math.floor(Math.random()*3)];
+  else if (perItem < 0.45) comment = wrong === 0 ? '反应速度很好，零失误，质量很高！' : '速度不错！减少失误的话成绩会更好。';
+  else if (perItem < 0.8) comment = '还可以更好！多练几次速度会明显提升。';
+  else comment = '别灰心！舒尔特方格需要大量练习，坚持一周会有明显进步。';
+  if (maxC >= 10) comment += ' 最高 ' + maxC + ' 连击🔥状态好时非常猛！';
+  else if (maxC >= 5) comment += ' 有过 ' + maxC + ' 连击的好状态，保持住！';
+  document.getElementById('sRComment').textContent = comment;
+
+  const tips = ['用余光扫描整个方格，不要只盯着一个数字看。','眼睛保持放松，用周边视觉一次性扫一片区域。','先快速扫一遍全盘，大致记住数字的分布位置。','点完一个数字的同时，眼睛就要开始找下一个。','如果总是点错，说明太快了，稍微放慢一点。','保持均匀的呼吸节奏，紧张反而反应变慢。','建议每天训练 5 分钟，坚持一周效果显著。','3×3 练到稳定 5 秒以内再挑战 4×4。','试着把数字按区域分组记忆，减少搜索范围。','手指放在屏幕中央待命，减少移动距离。'];
+  document.getElementById('sRTipText').textContent = tips[Math.floor(Math.random() * tips.length)];
+  document.getElementById('sRTipContent').style.display = 'none';
+  document.getElementById('sRTipToggle').textContent = '▸ 提升建议';
+
+  document.getElementById('sRScore').textContent = s.score + ' 分';
+  document.getElementById('sRTime').textContent = time.toFixed(2) + 's';
+  document.getElementById('sRSub').textContent = `${s.size}×${s.size} · ${total} 个数字 · 每个平均 ${perItem.toFixed(2)}s · 最高连击 ${maxC}`;
+  document.getElementById('sRWrong').textContent = wrong > 0 ? `点错 ${wrong} 次` : '✅ 零失误！';
+  document.getElementById('sRNewBest').style.display = isBest ? 'block' : 'none';
+  document.getElementById('sREndlessStats').style.display = 'none';
+  document.getElementById('sRTip').style.display = 'block';
+
+  const list = document.getElementById('sRRecords');
+  list.innerHTML = '';
+  [3,4,5,6].forEach(sz => {
+    const k = `${sz}x${sz}`;
+    const v = s.bestRecords[k];
+    const row = document.createElement('div');
+    row.className = 'record-row' + (k === `${s.size}x${s.size}` && isBest ? ' best-row' : '');
+    row.innerHTML = `<span class="label">${sz}×${sz}</span><span class="val">${v ? v.toFixed(2) + 's' : '--'}</span>`;
+    list.appendChild(row);
+  });
+
+  sPlayComplete();
+  document.getElementById('sResultOverlay').classList.add('show');
+}
+
+function sShowResultEndless(totalTime) {
+  const avgGridTime = s.gridTimes.length > 0 ? totalTime / s.gridTimes.length : 0;
+  const totalNums = s.totalNums;
+  const avgPerNum = totalNums > 0 ? totalTime / totalNums : 0;
+
+  document.getElementById('sREmoji').textContent =
+    s.gridsCompleted >= 20 ? '🤯' : s.gridsCompleted >= 10 ? '🔥' : s.gridsCompleted >= 5 ? '⚡' : '👍';
+  document.getElementById('sRTitle').textContent =
+    s.gridsCompleted >= 20 ? '🔥 无尽达人！' : s.gridsCompleted >= 10 ? '⚡ 耐力惊人！' : s.gridsCompleted >= 5 ? '👍 不错的表现' : '💪 继续加油';
+
+  document.getElementById('sRScore').textContent = (s.totalScore + s.score) + ' 分';
+  document.getElementById('sRTime').textContent = totalTime.toFixed(1) + 's';
+  document.getElementById('sRSub').textContent = `完成 ${s.gridsCompleted} 张 · 最大 ${s.size}×${s.size} · 共 ${totalNums} 个数字`;
+
+  const comment = s.gridsCompleted >= 15 ? '惊人的耐力！在持续增加难度的情况下完成这么多张，专注力非常强！'
+    : s.gridsCompleted >= 8 ? '很好的表现！长时间保持专注不容易，你的注意力训练很有成效。'
+    : s.gridsCompleted >= 4 ? '不错的开始！试着放松一点，保持节奏，能坚持更多张。'
+    : '无尽模式需要耐力，别着急，慢慢来，每多一张都是进步！';
+  document.getElementById('sRComment').textContent = comment;
+
+  document.getElementById('sRWrong').textContent = s.totalWrong > 0 ? `共点错 ${s.totalWrong} 次` : '✅ 零失误！';
+  document.getElementById('sRNewBest').style.display = 'none';
+  document.getElementById('sRTip').style.display = 'none';
+
+  // Endless stats
+  document.getElementById('sREndlessStats').style.display = 'block';
+  document.getElementById('sREndlessStats').innerHTML = `
+    <div class="row"><span class="l">📋 完成张数</span><span class="v">${s.gridsCompleted}</span></div>
+    <div class="row"><span class="l">📐 最大尺寸</span><span class="v">${s.size}×${s.size}</span></div>
+    <div class="row"><span class="l">⏱ 每张平均</span><span class="v">${avgGridTime.toFixed(1)}s</span></div>
+    <div class="row"><span class="l">🎯 每数平均</span><span class="v">${avgPerNum.toFixed(2)}s</span></div>
+    <div class="row"><span class="l">🔥 最高连击</span><span class="v">${s.maxCombo}</span></div>
+    <div class="row"><span class="l">❌ 总失误</span><span class="v">${s.totalWrong}</span></div>
+  `;
+
+  const list = document.getElementById('sRRecords');
+  list.innerHTML = '';
+  [3,4,5,6,7,8].forEach(sz => {
+    const k = `${sz}x${sz}`;
+    const v = s.bestRecords[k];
+    const row = document.createElement('div');
+    row.className = 'record-row';
+    row.innerHTML = `<span class="label">${sz}×${sz} 最佳</span><span class="val">${v ? v.toFixed(2) + 's' : '--'}</span>`;
+    list.appendChild(row);
+  });
+
+  sPlayComplete();
+  document.getElementById('sResultOverlay').classList.add('show');
+}
+
+function sCloseResult() {
+  document.getElementById('sResultOverlay').classList.remove('show');
+  sReset();
+}
+
+// ---- Schulte grid click ----
+sGrid.addEventListener('click', (e) => {
+  const cell = e.target.closest('.cell');
+  if (!cell || !s.playing || s.finished) return;
+  const num = parseInt(cell.dataset.num);
+
+  if (num === s.current) {
+    cell.style.transition = 'transform 0.05s, box-shadow 0.05s';
+    cell.style.transform = 'scale(0.82)';
+    cell.style.boxShadow = 'none';
+    cell.style.background = '#e8ecf4';
+
+    s.combo++;
+    if (s.combo > s.maxCombo) s.maxCombo = s.combo;
+    const bonus = Math.min(s.combo - 1, 15) * 10;
+    const pts = 100 + bonus;
+    s.score += pts;
+
+    sPlayHit(s.combo);
+    if (s.combo >= 10) vibrate([8, 10, 8]);
+    else if (s.combo >= 5) vibrate([10]);
+    else vibrate(8);
+
+    sAddFlare(cell, false);
+
+    const rect = cell.getBoundingClientRect();
+    const px = rect.left + rect.width / 2 - 20;
+    const py = rect.top - 10;
+    if (s.combo >= 10) showPopup(`🔥 ${s.combo}连击! +${pts}`, px - 20, py - 10, 'bonus');
+    else if (s.combo >= 5) showPopup(`✨ ${s.combo}连击 +${pts}`, px - 10, py - 5, 'bonus');
+    else showPopup(`+${pts}`, px, py, '');
+
+    s.current++;
+    sUpdateUI();
+
+    setTimeout(() => {
+      if (s.current > sTotal()) {
+        if (s.endless) {
+          // Endless mode: auto-next grid
+          s.finished = false;
+          setTimeout(() => sNextGridEndless(), 300);
+        } else {
+          s.finished = true;
+          sFinishClassic();
+        }
+        return;
+      }
+      cell.style.transition = 'transform 0.15s, background 0.15s, color 0.15s';
+      cell.style.transform = 'scale(0.9)';
+      cell.style.background = '#f0f4ff';
+      cell.style.color = '#c0c8e0';
+      cell.style.boxShadow = 'none';
+      cell.style.pointerEvents = 'none';
+      cell.style.borderColor = 'transparent';
+      sHighlightNext();
+    }, 100);
+
+  } else if (num > s.current) {
+    s.combo = 0;
+    s.wrongCount++;
+    sAddFlare(cell, true);
+    cell.classList.add('wrong-flash');
+    sPlayWrong();
+    vibrate([20, 30, 20]);
+    setTimeout(() => cell.classList.remove('wrong-flash'), 350);
+
+    const rect = cell.getBoundingClientRect();
+    showPopup('✕', rect.left + rect.width / 2 - 10, rect.top - 5, 'wrong-popup');
+    sThird.textContent = s.endless ? s.gridsCompleted + '张' : String(s.wrongCount);
+    sCombo.textContent = '0';
+  }
+});
+
+// ---- Schulte difficulty ----
+document.querySelectorAll('#modeSchulte .diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (s.playing) return;
+    document.querySelectorAll('#modeSchulte .diff-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const ns = parseInt(btn.dataset.size);
+    if (s.size !== ns) { s.size = ns; sReset(); }
+  });
+});
+
+// ---- Schulte sub-mode toggle ----
+document.querySelectorAll('#modeSchulte .sub-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (s.playing) return;
+    document.querySelectorAll('#modeSchulte .sub-mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    s.endless = btn.dataset.smode === 'endless';
+    sReset();
+    const isEndless = s.endless;
+    document.getElementById('sBtnStart').textContent = isEndless ? '开始无尽' : '开始';
+    document.getElementById('sBtnReset').textContent = isEndless ? '↻ 重置' : '↻ 重排';
+  });
+});
+
+// ---- Schulte buttons ----
+document.getElementById('sBtnStart').addEventListener('click', () => {
+  if (s.playing) return;
+  if (s.finished) { sReset(); requestAnimationFrame(() => s.endless ? sStartEndless() : sStartClassic()); }
+  else s.endless ? sStartEndless() : sStartClassic();
+});
+document.getElementById('sBtnReset').addEventListener('click', sReset);
+document.getElementById('sRBtnClose').addEventListener('click', sCloseResult);
+
+// Schulte tip toggle
+document.getElementById('sRTipToggle').addEventListener('click', () => {
+  const content = document.getElementById('sRTipContent');
+  const toggle = document.getElementById('sRTipToggle');
+  const isOpen = content.style.display !== 'none';
+  content.style.display = isOpen ? 'none' : 'block';
+  toggle.textContent = isOpen ? '▸ 提升建议' : '▾ 提升建议';
+});
+
+// Init schulte
+s.numbers = sGen(s.size);
+sRender();
+
+
+// =============================================
+// REACTION TRAINER
+// =============================================
+const TOTAL_ROUNDS = 10;
+const r = {
+  phase: 'idle', // idle | waiting | showing | result
+  round: 0,
+  results: [],
+  combo: 0,
+  maxCombo: 0,
+  targetTime: 0,
+  timerId: null,
+  bestRecord: JSON.parse(localStorage.getItem('reactionBest') || 'null'),
+  lastBest: null,
+  // Endless & variety
+  endless: false,
+  targetType: 'normal', // normal | trap | flash
+  trapsAvoided: 0,
+  trapsHit: 0,
+  totalHits: 0,
+  difficultylvl: 1,
+  targetTypes: [],
+  flashMissed: false,
+};
+
+const rStatus = document.getElementById('rStatus');
+const rTargetWrap = document.getElementById('rTargetWrap');
+const rTarget = document.getElementById('rTarget');
+const rGameArea = document.getElementById('rGameArea');
+const rRound = document.getElementById('rRound');
+const rRoundLabel = document.getElementById('rRoundLabel');
+const rLast = document.getElementById('rLast');
+const rBest = document.getElementById('rBest');
+const rCombo = document.getElementById('rCombo');
+const rProgress = document.getElementById('rProgress');
+const rFlash = document.getElementById('rFlash');
+const rComboFlash = document.getElementById('rComboFlash');
+const rTypeIndicator = document.getElementById('rTypeIndicator');
+
+function rUpdateBest() { rBest.textContent = r.bestRecord ? r.bestRecord + 'ms' : '--'; }
+rUpdateBest();
+
+function rShowStatus(text, cls) {
+  rStatus.style.display = 'block';
+  rStatus.textContent = text;
+  rStatus.className = 'status-text' + (cls ? ' ' + cls : '');
+  if (rTargetWrap) rTargetWrap.style.display = 'none';
+}
+
+function rHideTarget() {
+  rTargetWrap.style.display = 'none';
+  rStatus.style.display = 'block';
+}
+
+function rPickTargetType() {
+  if (!r.endless) {
+    // Classic mode: simpler mix
+    const roll = Math.random();
+    if (roll < 0.7) return 'normal';
+    if (roll < 0.85) return 'trap';
+    return 'flash';
+  }
+  // Endless mode: more variety, more traps at higher difficulty
+  const trapChance = 0.15 + Math.min(r.difficultylvl * 0.02, 0.2);
+  const flashChance = 0.2;
+  const roll = Math.random();
+  if (roll < flashChance) return 'flash';
+  if (roll < flashChance + trapChance) return 'trap';
+  return 'normal';
+}
+
+function rGetDifficultyDelay() {
+  if (!r.endless) return { min: 800, max: 2800 };
+  // Progressive difficulty
+  const d = r.difficultylvl;
+  const minDelay = Math.max(400, 800 - (d - 1) * 20);
+  const maxDelay = Math.max(1500, 2800 - (d - 1) * 40);
+  return { min: minDelay, max: maxDelay };
+}
+
+function rShowTargetTypeIndicator(type) {
+  const labels = { normal: '👆 点击它', trap: '✕ 不要点！', flash: '⚡ 快消失了' };
+  rTypeIndicator.textContent = labels[type] || '👆 普通';
+  rTypeIndicator.className = 'target-indicator ' + type;
+}
+
+function rNextRound() {
+  if (isPaused) { activeGameNext = rNextRound; return; }
+  if (!r.endless && r.round >= TOTAL_ROUNDS) {
+    rEnd();
+    return;
+  }
+
+  r.phase = 'waiting';
+  r.round++;
+  r.results.length; // force update reference
+
+  if (r.endless) {
+    rRound.textContent = r.round + ' 轮';
+    rRoundLabel.textContent = '🏃 当前';
+    rProgress.style.width = Math.min(100, (r.difficultylvl / 20) * 100) + '%';
+  } else {
+    rRound.textContent = r.round + ' / ' + TOTAL_ROUNDS;
+    rRoundLabel.textContent = '轮次';
+    rProgress.style.width = ((r.round - 1) / TOTAL_ROUNDS * 100) + '%';
+  }
+
+  rHideTarget();
+  rShowStatus('等待...', 'waiting');
+
+  const delayRange = rGetDifficultyDelay();
+  const delay = delayRange.min + Math.random() * (delayRange.max - delayRange.min);
+
+  r.timerId = setTimeout(() => {
+    if (r.phase !== 'waiting') return;
+    r.phase = 'showing';
+    r.targetTime = performance.now();
+
+    const areaRect = rGameArea.getBoundingClientRect();
+    const maxX = areaRect.width - 140;
+    const maxY = areaRect.height - 140;
+    const x = 70 + Math.random() * Math.max(0, maxX);
+    const y = 70 + Math.random() * Math.max(0, maxY);
+
+    // Pick target type
+    r.targetType = rPickTargetType();
+    rShowTargetTypeIndicator(r.targetType);
+
+    // Position
+    rTarget.style.left = x + 'px';
+    rTarget.style.top = y + 'px';
+
+    // Reset target classes
+    rTarget.className = 'target';
+    void rTarget.offsetWidth;
+
+    if (r.targetType === 'normal') {
+      rTarget.className = 'target green';
+      rTarget.textContent = '点！';
+    } else if (r.targetType === 'trap') {
+      rTarget.className = 'target trap';
+      rTarget.textContent = '✕';
+    } else { // flash
+      rTarget.className = 'target flash';
+      rTarget.textContent = '闪！';
+    }
+
+    // Size modifier in endless mode at higher difficulty
+    if (r.endless && r.difficultylvl >= 5 && r.targetType === 'normal') {
+      if (r.difficultylvl >= 10 && Math.random() < 0.3) rTarget.classList.add('size-xs');
+      else if (Math.random() < 0.35) rTarget.classList.add('size-sm');
+    }
+
+    void rTarget.offsetWidth;
+    rTarget.classList.add('show');
+
+    rTargetWrap.style.display = 'block';
+    rStatus.style.display = 'none';
+
+    playTone(660, 0.08, 'sine', 0.1);
+
+    // If trap, set auto-disappear timer
+    if (r.targetType === 'trap') {
+      const trapDuration = r.endless ? Math.max(600, 1200 - r.difficultylvl * 30) : 1200;
+      r.timerId = setTimeout(() => {
+        if (r.phase !== 'showing') return;
+        // Player correctly avoided trap!
+        r.phase = 'result';
+        r.trapsAvoided++;
+        rFlash.textContent = '✓ 正确！';
+        rFlash.className = 'result-flash trap-success';
+        setTimeout(() => rFlash.classList.add('show'), 10);
+        setTimeout(() => rFlash.classList.remove('show'), 400);
+        playTone(880, 0.08, 'sine', 0.08);
+        vibrate(5);
+        rTarget.className = 'target';
+        rTarget.classList.remove('show');
+        // Combo preserved
+        setTimeout(() => {
+          if (r.endless) {
+            r.difficultylvl++;
+            rNextRound();
+          } else if (r.round >= TOTAL_ROUNDS) {
+            rEnd();
+          } else {
+            rNextRound();
+          }
+        }, 600);
+      }, trapDuration);
+    } else if (r.targetType === 'flash') {
+      const flashDuration = r.endless ? Math.max(400, 700 - (r.difficultylvl - 1) * 12) : 700;
+      r.timerId = setTimeout(() => {
+        if (r.phase !== 'showing') return;
+        // Player missed the flash target!
+        r.phase = 'result';
+        r.combo = 0;
+        r.flashMissed = true;
+        rTarget.className = 'target flash miss';
+        rTarget.textContent = '慢了';
+        playTone(220, 0.2, 'sawtooth', 0.07);
+        vibrate([15, 20]);
+        rFlash.textContent = '慢了！';
+        rFlash.className = 'result-flash trap-fail';
+        setTimeout(() => rFlash.classList.add('show'), 10);
+        setTimeout(() => rFlash.classList.remove('show'), 400);
+        rCombo.textContent = '0';
+        rComboFlash.className = 'combo-display';
+        rLast.textContent = 'miss';
+        rLast.style.color = '#e74c3c';
+        setTimeout(() => {
+          if (r.endless) {
+            r.difficultylvl = Math.max(1, r.difficultylvl - 1);
+            rNextRound();
+          } else if (r.round >= TOTAL_ROUNDS) {
+            rEnd();
+          } else {
+            rNextRound();
+          }
+        }, 700);
+      }, flashDuration);
+    }
+  }, delay);
+}
+
+function rHandleTap() {
+  if (r.phase !== 'showing') return;
+
+  // Trap target tapped = error!
+  if (r.targetType === 'trap') {
+    if (r.timerId) { clearTimeout(r.timerId); r.timerId = null; }
+    r.phase = 'result';
+    r.combo = 0;
+    r.trapsHit++;
+    rFlash.textContent = '点错了！✕';
+    rFlash.className = 'result-flash trap-fail';
+    setTimeout(() => rFlash.classList.add('show'), 10);
+    setTimeout(() => rFlash.classList.remove('show'), 500);
+    rTarget.className = 'target trap-hit show';
+    playTone(150, 0.25, 'sawtooth', 0.08);
+    vibrate([20, 30, 20]);
+    rCombo.textContent = '0';
+    rComboFlash.className = 'combo-display';
+    setTimeout(() => {
+      if (r.endless) {
+        r.difficultylvl = Math.max(1, r.difficultylvl - 1);
+        rNextRound();
+      } else if (r.round >= TOTAL_ROUNDS) {
+        rEnd();
+      } else {
+        rNextRound();
+      }
+    }, 700);
+    return;
+  }
+
+  // Normal or Flash target tapped
+  r.phase = 'result';
+  if (r.timerId) { clearTimeout(r.timerId); r.timerId = null; }
+
+  const reaction = Math.round(performance.now() - r.targetTime);
+
+  let cls = 'slow';
+  let comment = '';
+  if (reaction < 150) { cls = 'fast'; comment = '⚡ 超神！'; }
+  else if (reaction < 200) { cls = 'fast'; comment = '🔥 飞快！'; }
+  else if (reaction < 250) { cls = 'good'; comment = '👍 很快！'; }
+  else if (reaction < 300) { cls = 'good'; comment = '👌 不错'; }
+  else if (reaction < 400) { cls = 'ok'; comment = '😅 还行'; }
+  else { cls = 'slow'; comment = '🐢 慢了'; }
+
+  if (reaction < 250) {
+    r.combo++;
+    if (r.combo > r.maxCombo) r.maxCombo = r.combo;
+  } else {
+    r.combo = 0;
+  }
+
+  r.results.push(reaction);
+  r.targetTypes.push(r.targetType);
+  r.totalHits++;
+
+  // Sound + vib
+  if (reaction < 200) { playTone(880,0.06,'sine',0.12); setTimeout(()=>playTone(1100,0.05,'sine',0.08),40); vibrate(10); }
+  else if (reaction < 300) { playTone(660,0.07,'sine',0.1); vibrate(8); }
+  else { playTone(330,0.12,'sine',0.08); vibrate([10,20]); }
+
+  // Flash
+  rFlash.textContent = reaction + 'ms';
+  rFlash.className = 'result-flash ' + cls;
+  setTimeout(() => rFlash.classList.add('show'), 10);
+  setTimeout(() => rFlash.classList.remove('show'), 500);
+
+  if (r.combo >= 3) {
+    rComboFlash.textContent = '🔥 ' + r.combo + '连击';
+    rComboFlash.className = 'combo-display show';
+  } else {
+    rComboFlash.className = 'combo-display';
+  }
+
+  rLast.textContent = reaction + 'ms';
+  rLast.style.color = cls === 'fast' ? '#27ae60' : cls === 'good' ? '#4A90D9' : cls === 'ok' ? '#e67e22' : '#e74c3c';
+  rCombo.textContent = r.combo >= 3 ? r.combo + ' 🔥' : '0';
+
+  // Best record (track separately for normal/flash, exclude traps)
+  if (r.bestRecord === null || reaction < r.bestRecord) {
+    r.bestRecord = reaction;
+    localStorage.setItem('reactionBest', JSON.stringify(reaction));
+    rUpdateBest();
+  }
+
+  rTarget.textContent = comment;
+  rTarget.className = 'target ' + cls + ' show';
+
+  // In endless mode, increase difficulty after each hit
+  if (r.endless) r.difficultylvl++;
+
+  setTimeout(() => {
+    if (!r.endless && r.round >= TOTAL_ROUNDS) {
+      rHideTarget();
+      rEnd();
+    } else {
+      rNextRound();
+    }
+  }, 500);
+}
+
+function rStart() {
+  initAudio();
+  showPauseBtn(r.endless);
+  r.phase = 'idle';
+  r.round = 0;
+  r.results = [];
+  r.targetTypes = [];
+  r.combo = 0;
+  r.maxCombo = 0;
+  r.totalHits = 0;
+  r.trapsAvoided = 0;
+  r.trapsHit = 0;
+  r.difficultylvl = 1;
+  r.lastBest = r.bestRecord;
+
+  rCombo.textContent = '0';
+  rLast.textContent = '--';
+  rLast.style.color = '#333';
+  rProgress.style.width = '0%';
+  rTypeIndicator.textContent = '';
+  rTypeIndicator.className = 'target-indicator';
+  document.getElementById('rBtnStart').textContent = '训练中...';
+
+  rNextRound();
+}
+
+function rEnd() {
+  r.phase = 'idle';
+  rHideTarget();
+  rShowStatus('完成！', 'ready');
+  document.getElementById('rBtnStart').textContent = '再来一轮';
+
+  if (r.results.length === 0) {
+    // No valid results (only traps caught)
+    document.getElementById('rREmoji').textContent = '🤔';
+    document.getElementById('rRTitle').textContent = '没有有效点击';
+    document.getElementById('rRAvg').textContent = '--';
+    document.getElementById('rRBest').textContent = '最佳 --';
+    document.getElementById('rRSub').textContent = '试试正常点击目标';
+    document.getElementById('rRComment').textContent = '记得看到绿色或橙色目标要点下去哦！';
+    document.getElementById('rRNewBest').style.display = 'none';
+    document.getElementById('rRStatGrid').innerHTML = '';
+    document.getElementById('rRList').innerHTML = '';
+    document.getElementById('rREndlessStats').style.display = 'none';
+    document.getElementById('rResultOverlay').classList.add('show');
+    return;
+  }
+
+  const avg = Math.round(r.results.reduce((a,b) => a+b, 0) / r.results.length);
+  const best = Math.min(...r.results);
+  const isBest = r.lastBest === null || best < r.lastBest;
+
+  document.getElementById('rREmoji').textContent =
+    avg < 180 ? '🤯' : avg < 220 ? '🔥' : avg < 280 ? '⚡' : avg < 350 ? '👍' : '😅';
+  document.getElementById('rRTitle').textContent =
+    avg < 180 ? '⚡ 反应神速！' : avg < 220 ? '🔥 超级快！' : avg < 280 ? '👍 反应很快！' : avg < 350 ? '💪 还不错' : '📈 继续练习！';
+  document.getElementById('rRAvg').textContent = avg + 'ms';
+  document.getElementById('rRBest').textContent = '最佳 ' + best + 'ms';
+
+  if (r.endless) {
+    document.getElementById('rRSub').textContent =
+      r.totalHits + ' 轮有效 · 最高连击 ' + r.maxCombo + ' · 难度 ' + r.difficultylvl;
+  } else {
+    document.getElementById('rRSub').textContent =
+      TOTAL_ROUNDS + ' 轮 · 最高连击 ' + r.maxCombo + ' · 陷阱躲过 ' + r.trapsAvoided + '/' + (r.trapsAvoided + r.trapsHit);
+  }
+  document.getElementById('rRNewBest').style.display = isBest ? 'block' : 'none';
+
+  const comments = r.endless
+    ? (r.totalHits >= 50 ? ['惊人的专注力！长时间保持高速反应，非常厉害！']
+      : r.totalHits >= 30 ? ['耐力不错！在持续的新类型目标下还能保持稳定反应。']
+      : r.totalHits >= 15 ? ['适应了不同类型的目标反应，继续练习！']
+      : ['无尽模式下目标类型多变，多练练适应节奏。'])
+    : (avg < 180 ? ['你的反应速度属于顶尖水平！可能是人群中的前 1%。']
+      : avg < 220 ? ['反应非常快！经过训练还能更快。']
+      : avg < 280 ? ['反应速度良好，超过大部分人了。']
+      : avg < 350 ? ['平均反应速度正常，坚持训练会有明显提升。']
+      : ['别担心！每天练 5 分钟，两周就能看到巨大进步。']);
+  if (r.trapsAvoided > 0) comments.push(' 陷阱躲过 ' + r.trapsAvoided + ' 次，抑制力不错！');
+  if (r.maxCombo >= 5) comments.push(' 最高 ' + r.maxCombo + ' 连击🔥');
+  document.getElementById('rRComment').textContent = comments.join('');
+
+  // Stat grid
+  const gridItems = [['最快', best + 'ms'], ['最慢', Math.max(...r.results) + 'ms'], ['平均', avg + 'ms'], ['连击', r.maxCombo]];
+  if (r.endless) {
+    gridItems.push(['总轮数', String(r.totalHits)]);
+    gridItems.push(['避开陷阱', String(r.trapsAvoided)]);
+  }
+  document.getElementById('rRStatGrid').innerHTML = gridItems
+    .map(s => `<div class="stat-item"><div class="lbl">${s[0]}</div><div class="val">${s[1]}</div></div>`).join('');
+
+  // Round list with target type
+  const typeSymbol = { normal: '🟢', trap: '🔴', flash: '🟣' };
+  document.getElementById('rRList').innerHTML =
+    '<div style="font-size:12px;color:#999;margin-bottom:4px">每轮详情</div>' +
+    r.results.map((re, i) => {
+      const c = re < 200 ? 'fast' : re < 300 ? 'good' : re < 400 ? 'ok' : 'slow';
+      const t = r.targetTypes && r.targetTypes[i] || 'normal';
+      const sym = typeSymbol[t] || '🟢';
+      return `<div class="round-row"><span class="rnum">#${i+1}</span><span class="rtype ${t}">${sym}</span><span class="rtime ${c}">${re}ms</span></div>`;
+    }).join('');
+
+  // Endless stats
+  if (r.endless) {
+    document.getElementById('rREndlessStats').style.display = 'block';
+    document.getElementById('rREndlessStats').innerHTML = `
+      <div class="row"><span class="l">🏃 总轮数</span><span class="v">${r.totalHits}</span></div>
+      <div class="row"><span class="l">📈 最终难度</span><span class="v">Lv.${r.difficultylvl}</span></div>
+      <div class="row"><span class="l">🔴 陷阱避开</span><span class="v">${r.trapsAvoided}</span></div>
+      <div class="row"><span class="l">❌ 陷阱误触</span><span class="v">${r.trapsHit}</span></div>
+      <div class="row"><span class="l">🔥 最高连击</span><span class="v">${r.maxCombo}</span></div>
+    `;
+  } else {
+    document.getElementById('rREndlessStats').style.display = 'none';
+  }
+
+  document.getElementById('rResultOverlay').classList.add('show');
+}
+
+function rCloseResult() {
+  document.getElementById('rResultOverlay').classList.remove('show');
+  rReset();
+}
+
+function rReset() {
+  showPauseBtn(false);
+  if (r.timerId) { clearTimeout(r.timerId); r.timerId = null; }
+  r.phase = 'idle';
+  r.round = 0;
+  r.results = [];
+  r.targetTypes = [];
+  r.combo = 0;
+  r.maxCombo = 0;
+  r.totalHits = 0;
+  r.trapsAvoided = 0;
+  r.trapsHit = 0;
+  r.difficultylvl = 1;
+  r.targetTypes = [];
+  r.flashMissed = false;
+
+  // Reset classes
+  rTarget.className = 'target';
+  rTarget.classList.remove('show', 'size-sm', 'size-xs');
+
+  rHideTarget();
+  rShowStatus('点击下方开始', 'ready');
+  rRound.textContent = '0 / ' + TOTAL_ROUNDS;
+  rRoundLabel.textContent = '轮次';
+  rProgress.style.width = '0%';
+  rLast.textContent = '--';
+  rLast.style.color = '#333';
+  rCombo.textContent = '0';
+  rTypeIndicator.textContent = '';
+  rTypeIndicator.className = 'target-indicator';
+  document.getElementById('rBtnStart').textContent = '开始训练';
+}
+
+// ---- Reaction events ----
+rGameArea.addEventListener('click', (e) => {
+  if (r.phase === 'waiting') {
+    r.phase = 'idle';
+    if (r.timerId) { clearTimeout(r.timerId); r.timerId = null; }
+    r.combo = 0;
+    rCombo.textContent = '0';
+    rShowStatus('点早了！等目标出现', 'too-soon');
+    playTone(200, 0.2, 'sawtooth', 0.08);
+    vibrate([20,30,20]);
+    r.round--;
+    setTimeout(() => rNextRound(), 800);
+  }
+});
+
+rTarget.addEventListener('click', (e) => {
+  e.stopPropagation();
+  rHandleTap();
+});
+
+document.getElementById('rBtnStart').addEventListener('click', () => {
+  if (r.phase === 'idle') rStart();
+});
+document.getElementById('rBtnReset').addEventListener('click', rReset);
+document.getElementById('rRBtnClose').addEventListener('click', rCloseResult);
+
+// ---- Reaction sub-mode toggle ----
+document.querySelectorAll('#modeReaction .sub-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (r.phase !== 'idle') return;
+    document.querySelectorAll('#modeReaction .sub-mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    r.endless = btn.dataset.rmode === 'endless';
+    rReset();
+    document.getElementById('rBtnStart').textContent = r.endless ? '开始无尽' : '开始训练';
+  });
+});
+
+// Init reaction
+rShowStatus('点击下方开始', 'ready');
+rRound.textContent = '0 / ' + TOTAL_ROUNDS;
+
+
+// =============================================
+// MATH REACTION
+// =============================================
+const MATH_ROUNDS = 10;
+const m = {
+  phase: 'idle', // idle | showing | result
+  round: 0,
+  results: [],
+  combo: 0,
+  maxCombo: 0,
+  correctCount: 0,
+  wrongCount: 0,
+  startTime: 0,
+  endless: false,
+  bestRecord: JSON.parse(localStorage.getItem('mathBest') || 'null'),
+  lastBest: null,
+  difficultylvl: 1,
+  // Current equation
+  a: 0, op: '+', b: 0, answer: 0,
+  options: [],
+};
+
+const mMathArea = document.getElementById('mMathArea');
+const mStatus = document.getElementById('mStatus');
+const mEquation = document.getElementById('mEquation');
+const mAnswerGrid = document.getElementById('mAnswerGrid');
+const mRound = document.getElementById('mRound');
+const mRoundLabel = document.getElementById('mRoundLabel');
+const mLast = document.getElementById('mLast');
+const mBest = document.getElementById('mBest');
+const mCombo = document.getElementById('mCombo');
+const mProgress = document.getElementById('mProgress');
+
+function mUpdateBest() { mBest.textContent = m.bestRecord ? m.bestRecord + 'ms' : '--'; }
+mUpdateBest();
+
+function mShowStatus(text, cls) {
+  mEquation.style.display = 'none';
+  mAnswerGrid.style.display = 'none';
+  mStatus.style.display = 'block';
+  mStatus.textContent = text;
+  mStatus.className = 'status-text' + (cls ? ' ' + cls : '');
+}
+
+function mGenEquation() {
+  const lvl = m.difficultylvl;
+  let a, b, op, answer;
+
+  if (lvl <= 2) {
+    // Easy: + and -, numbers 1-12
+    op = Math.random() < 0.5 ? '+' : '-';
+    a = Math.floor(Math.random() * 11) + 2; // 2-12
+    b = Math.floor(Math.random() * (a - 1)) + 1;
+    if (op === '+') answer = a + b;
+    else answer = a - b;
+  } else if (lvl <= 5) {
+    // Medium: +, -, ×, numbers 1-25
+    const ops = ['+', '-', '×'];
+    op = ops[Math.floor(Math.random() * 3)];
+    a = Math.floor(Math.random() * 21) + 2;
+    b = Math.floor(Math.random() * Math.min(a - 1, 12)) + 1;
+    if (op === '+') answer = a + b;
+    else if (op === '-') answer = a - b;
+    else { a = Math.floor(Math.random() * 10) + 2; b = Math.floor(Math.random() * 9) + 2; answer = a * b; }
+  } else {
+    // Hard: all ops including ÷
+    const ops = ['+', '-', '×', '÷'];
+    op = ops[Math.floor(Math.random() * 4)];
+    if (op === '÷') {
+      b = Math.floor(Math.random() * 9) + 2;
+      answer = Math.floor(Math.random() * 10) + 1;
+      a = b * answer; // ensure clean division
+    } else if (op === '×') {
+      a = Math.floor(Math.random() * 12) + 2;
+      b = Math.floor(Math.random() * 11) + 2;
+      answer = a * b;
+    } else {
+      a = Math.floor(Math.random() * 41) + 5;
+      b = Math.floor(Math.random() * Math.min(a - 1, 20)) + 1;
+      if (op === '+') answer = a + b;
+      else answer = a - b;
+    }
+  }
+
+  return { a, op, b, answer };
+}
+
+function mGenOptions(correct) {
+  const opts = new Set([correct]);
+  let attempts = 0;
+  while (opts.size < 4 && attempts < 50) {
+    const offset = Math.floor(Math.random() * 9) + 1;
+    const sign = Math.random() < 0.5 ? 1 : -1;
+    const wrong = correct + sign * offset;
+    if (wrong >= 0 && wrong !== correct) opts.add(wrong);
+    attempts++;
+  }
+  // Fill if needed
+  while (opts.size < 4) {
+    const w = correct + opts.size * 2 + 1;
+    if (w !== correct) opts.add(w);
+  }
+  const arr = Array.from(opts);
+  // Shuffle
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function mNextRound() {
+  if (isPaused) { activeGameNext = mNextRound; return; }
+  if (!m.endless && m.round >= MATH_ROUNDS) {
+    mEnd();
+    return;
+  }
+
+  m.phase = 'showing';
+  m.round++;
+
+  if (m.endless) {
+    mRound.textContent = m.round + ' 轮';
+    mRoundLabel.textContent = '🏃 当前';
+    mProgress.style.width = Math.min(100, (m.difficultylvl / 25) * 100) + '%';
+  } else {
+    mRound.textContent = m.round + ' / ' + MATH_ROUNDS;
+    mRoundLabel.textContent = '轮次';
+    mProgress.style.width = ((m.round - 1) / MATH_ROUNDS * 100) + '%';
+  }
+
+  const eq = mGenEquation();
+  m.a = eq.a; m.op = eq.op; m.b = eq.b; m.answer = eq.answer;
+  m.options = mGenOptions(eq.answer);
+  m.startTime = performance.now();
+
+  // Render equation
+  mStatus.style.display = 'none';
+  mEquation.style.display = 'block';
+  mEquation.innerHTML = `${eq.a} <span class="operator">${eq.op}</span> ${eq.b} <span class="equals">=</span> ?`;
+
+  // Render answers
+  mAnswerGrid.style.display = 'grid';
+  mAnswerGrid.innerHTML = m.options.map((val, i) =>
+    `<div class="answer-btn" data-idx="${i}">${val}</div>`
+  ).join('');
+
+  playTone(520, 0.06, 'sine', 0.08);
+}
+
+function mHandleAnswer(idx) {
+  if (m.phase !== 'showing') return;
+  m.phase = 'result';
+
+  const chosen = m.options[idx];
+  const correct = chosen === m.answer;
+  const reaction = Math.round(performance.now() - m.startTime);
+
+  if (correct) {
+    m.correctCount++;
+    m.combo++;
+    if (m.combo > m.maxCombo) m.maxCombo = m.combo;
+    m.results.push(reaction);
+
+    // Glow correct
+    const btns = mAnswerGrid.querySelectorAll('.answer-btn');
+    btns[idx].classList.add('correct-glow');
+
+    // Sound
+    const base = 660 + Math.min(m.combo, 20) * 15;
+    playTone(base, 0.07, 'sine', 0.12);
+    if (m.combo >= 5) { setTimeout(() => playTone(base * 1.25, 0.05, 'sine', 0.08), 30); vibrate(8); }
+    else vibrate(6);
+
+    mLast.textContent = reaction + 'ms';
+    mLast.style.color = reaction < 2000 ? '#27ae60' : reaction < 4000 ? '#4A90D9' : '#e67e22';
+    mCombo.textContent = m.combo >= 3 ? m.combo + ' 🔥' : String(m.combo);
+
+    // Best record
+    if (m.bestRecord === null || reaction < m.bestRecord) {
+      m.bestRecord = reaction;
+      localStorage.setItem('mathBest', JSON.stringify(reaction));
+      mUpdateBest();
+    }
+  } else {
+    m.wrongCount++;
+    m.combo = 0;
+
+    const btns = mAnswerGrid.querySelectorAll('.answer-btn');
+    btns[idx].classList.add('wrong-glow');
+    // Also highlight correct answer
+    m.options.forEach((val, i) => {
+      if (val === m.answer) btns[i].classList.add('correct-glow');
+    });
+
+    playTone(180, 0.2, 'sawtooth', 0.07);
+    vibrate([15, 20]);
+
+    mLast.textContent = '✕ ' + chosen;
+    mLast.style.color = '#e74c3c';
+    mCombo.textContent = '0';
+  }
+
+  if (m.endless && correct) m.difficultylvl++;
+
+  // Show brief pause then next
+  setTimeout(() => {
+    if (!m.endless && m.round >= MATH_ROUNDS) {
+      mEnd();
+    } else {
+      mNextRound();
+    }
+  }, correct ? 600 : 1000);
+}
+
+// Answer click delegation
+mAnswerGrid.addEventListener('click', (e) => {
+  const btn = e.target.closest('.answer-btn');
+  if (!btn) return;
+  mHandleAnswer(parseInt(btn.dataset.idx));
+});
+
+function mStart() {
+  initAudio();
+  showPauseBtn(m.endless);
+  m.phase = 'idle';
+  m.round = 0;
+  m.results = [];
+  m.combo = 0;
+  m.maxCombo = 0;
+  m.correctCount = 0;
+  m.wrongCount = 0;
+  m.difficultylvl = 1;
+  m.lastBest = m.bestRecord;
+
+  mCombo.textContent = '0';
+  mLast.textContent = '--';
+  mLast.style.color = '#333';
+  mProgress.style.width = '0%';
+  document.getElementById('mBtnStart').textContent = '挑战中...';
+
+  mNextRound();
+}
+
+function mEnd() {
+  m.phase = 'idle';
+  mShowStatus('完成！', 'ready');
+  document.getElementById('mBtnStart').textContent = '再来一局';
+
+  if (m.correctCount === 0) {
+    document.getElementById('mREmoji').textContent = '😅';
+    document.getElementById('mRTitle').textContent = '一个都没对？';
+    document.getElementById('mRTime').textContent = '--';
+    document.getElementById('mRStat').textContent = '正确率 0%';
+    document.getElementById('mRSub').textContent = '';
+    document.getElementById('mRComment').textContent = '别急，看清楚再点！';
+    document.getElementById('mRNewBest').style.display = 'none';
+    document.getElementById('mRStatGrid').innerHTML = '';
+    document.getElementById('mResultOverlay').classList.add('show');
+    return;
+  }
+
+  const avg = Math.round(m.results.reduce((a,b) => a+b, 0) / m.results.length);
+  const best = Math.min(...m.results);
+  const accuracy = Math.round(m.correctCount / (m.correctCount + m.wrongCount) * 100);
+  const isBest = m.lastBest === null || best < m.lastBest;
+
+  document.getElementById('mREmoji').textContent =
+    accuracy >= 90 && avg < 2000 ? '🤯' : accuracy >= 80 ? '🔥' : accuracy >= 60 ? '⚡' : '👍';
+  document.getElementById('mRTitle').textContent =
+    accuracy >= 90 ? '🧮 计算达人！' : accuracy >= 80 ? '⚡ 又快又准！' : accuracy >= 60 ? '💪 还不错' : '📈 继续练习！';
+  document.getElementById('mRTime').textContent = avg + 'ms';
+  document.getElementById('mRStat').textContent = `正确率 ${accuracy}% · 答对 ${m.correctCount}/${m.correctCount + m.wrongCount}`;
+
+  if (m.endless) {
+    document.getElementById('mRSub').textContent =
+      m.round + ' 轮 · 最高连击 ' + m.maxCombo + ' · 最大难度 Lv.' + m.difficultylvl;
+  } else {
+    document.getElementById('mRSub').textContent =
+      MATH_ROUNDS + ' 轮 · 最高连击 ' + m.maxCombo;
+  }
+  document.getElementById('mRNewBest').style.display = isBest ? 'block' : 'none';
+
+  const comments = m.endless
+    ? (m.round >= 30 ? ['惊人的计算耐力！长时间保持高准确率非常厉害！'] : m.round >= 15 ? ['在无尽模式下表现稳定，大脑处理速度不错！'] : ['不错的开始，适应节奏后能坚持更久。'])
+    : (accuracy >= 90 ? ['你的计算速度和准确率都很高！'] : accuracy >= 70 ? ['有一定基础，多加练习能更快更准。'] : ['建议先保证准确率，再追求速度。']);
+  if (m.maxCombo >= 5) comments.push(' 最高 ' + m.maxCombo + ' 连击🔥');
+  document.getElementById('mRComment').textContent = comments.join('');
+
+  document.getElementById('mRStatGrid').innerHTML = [
+    ['最快', best + 'ms'], ['平均', avg + 'ms'],
+    ['正确率', accuracy + '%'], ['连击', m.maxCombo],
+    ['答对', String(m.correctCount)], ['答错', String(m.wrongCount)],
+  ].map(s => `<div class="stat-item"><div class="lbl">${s[0]}</div><div class="val">${s[1]}</div></div>`).join('');
+
+  document.getElementById('mResultOverlay').classList.add('show');
+}
+
+function mCloseResult() {
+  document.getElementById('mResultOverlay').classList.remove('show');
+  mReset();
+}
+
+function mReset() {
+  showPauseBtn(false);
+  m.phase = 'idle';
+  m.round = 0;
+  m.results = [];
+  m.combo = 0;
+  m.maxCombo = 0;
+  m.correctCount = 0;
+  m.wrongCount = 0;
+  m.difficultylvl = 1;
+
+  mEquation.style.display = 'none';
+  mAnswerGrid.style.display = 'none';
+  mShowStatus('点击下方开始', 'ready');
+  mRound.textContent = '0 / ' + MATH_ROUNDS;
+  mRoundLabel.textContent = '轮次';
+  mProgress.style.width = '0%';
+  mLast.textContent = '--';
+  mLast.style.color = '#333';
+  mCombo.textContent = '0';
+  document.getElementById('mBtnStart').textContent = '开始挑战';
+}
+
+// Math buttons
+document.getElementById('mBtnStart').addEventListener('click', () => {
+  if (m.phase === 'idle') mStart();
+});
+document.getElementById('mBtnReset').addEventListener('click', mReset);
+document.getElementById('mRBtnClose').addEventListener('click', mCloseResult);
+
+// Math sub-mode toggle
+document.querySelectorAll('#modeMath .sub-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (m.phase !== 'idle') return;
+    document.querySelectorAll('#modeMath .sub-mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    m.endless = btn.dataset.mmode === 'endless';
+    mReset();
+    document.getElementById('mBtnStart').textContent = m.endless ? '开始无尽' : '开始挑战';
+  });
+});
+
+// Init math
+mShowStatus('点击下方开始', 'ready');
+mRound.textContent = '0 / ' + MATH_ROUNDS;
+
+
+// =============================================
+// TRAFFIC LIGHT REACTION
+// =============================================
+const t = {
+  phase: 'idle', // idle | waiting | go | result | early
+  round: 0,
+  roundsPerSession: 10,
+  results: [],
+  falseStarts: 0,
+  combo: 0,
+  maxCombo: 0,
+  startTime: 0,
+  timerId: null,
+  endless: false,
+  bestRecord: JSON.parse(localStorage.getItem('trafficBest') || 'null'),
+  lastBest: null,
+};
+
+const tLight = document.getElementById('tLight');
+const tLabel = document.getElementById('tLightLabel');
+const tRound = document.getElementById('tRound');
+const tRoundLabel = document.getElementById('tRoundLabel');
+const tLast = document.getElementById('tLast');
+const tBest = document.getElementById('tBest');
+const tCombo = document.getElementById('tCombo');
+const tProgress = document.getElementById('tProgress');
+const tGameArea = document.getElementById('tGameArea');
+
+function tUpdateBest() { tBest.textContent = t.bestRecord ? t.bestRecord + 'ms' : '--'; }
+tUpdateBest();
+
+function tSetLight(cls, text) {
+  tLight.className = 'light ' + cls;
+  tLight.textContent = text || '';
+}
+
+function tSetLabel(text, cls) {
+  tLabel.textContent = text;
+  tLabel.className = 'light-label' + (cls ? ' ' + cls : '');
+  // If text has a sub, handle separately
+  if (text.includes('\n')) {
+    const parts = text.split('\n');
+    tLabel.innerHTML = parts[0] + '<span class="sub">' + parts.slice(1).join('\n') + '</span>';
+  }
+}
+
+function tNextRound() {
+  if (isPaused) { activeGameNext = tNextRound; return; }
+  if (!t.endless && t.round >= t.roundsPerSession) {
+    tEnd();
+    return;
+  }
+
+  t.phase = 'waiting';
+  t.round++;
+
+  if (t.endless) {
+    tRound.textContent = t.round + ' 轮';
+    tRoundLabel.textContent = '🏃 当前';
+    tProgress.style.width = Math.min(100, (t.round / 50) * 100) + '%';
+  } else {
+    tRound.textContent = t.round + ' / ' + t.roundsPerSession;
+    tRoundLabel.textContent = '轮次';
+    tProgress.style.width = ((t.round - 1) / t.roundsPerSession * 100) + '%';
+  }
+
+  tSetLight('red', '等');
+  tSetLabel('等灯变绿\n耐心点...');
+
+  const waitMin = t.endless ? Math.max(600, 1500 - t.round * 15) : 1000;
+  const waitMax = t.endless ? Math.max(1200, 4000 - t.round * 20) : 4000;
+  const delay = waitMin + Math.random() * (waitMax - waitMin);
+
+  t.timerId = setTimeout(() => {
+    if (t.phase !== 'waiting') return;
+    // Turn green!
+    t.phase = 'go';
+    t.startTime = performance.now();
+    tSetLight('green', '点！');
+    tSetLabel('点！！', 'ready');
+    playTone(880, 0.1, 'sine', 0.1);
+    vibrate(8);
+  }, delay);
+}
+
+function tHandleTap() {
+  if (t.phase === 'go') {
+    // Tapped on green — success!
+    t.phase = 'result';
+    if (t.timerId) { clearTimeout(t.timerId); t.timerId = null; }
+
+    const reaction = Math.round(performance.now() - t.startTime);
+    t.results.push(reaction);
+
+    // Combo
+    if (reaction < 280) {
+      t.combo++;
+      if (t.combo > t.maxCombo) t.maxCombo = t.combo;
+    } else {
+      t.combo = 0;
+    }
+
+    // Color grade
+    let cls = 'slow';
+    if (reaction < 180) { cls = 'fast'; }
+    else if (reaction < 230) { cls = 'good'; }
+    else if (reaction < 300) { cls = 'ok'; }
+
+    // Sound
+    if (reaction < 200) { playTone(1000,0.08,'sine',0.12); setTimeout(()=>playTone(1200,0.06,'sine',0.08),40); vibrate(10); }
+    else if (reaction < 280) { playTone(780,0.08,'sine',0.1); vibrate(6); }
+    else { playTone(400,0.1,'sine',0.08); vibrate([8,12]); }
+
+    // Update display
+    tLast.textContent = reaction + 'ms';
+    tLast.style.color = cls === 'fast' ? '#27ae60' : cls === 'good' ? '#4A90D9' : cls === 'ok' ? '#e67e22' : '#e74c3c';
+    tCombo.textContent = t.combo >= 3 ? t.combo + ' 🔥' : String(t.combo);
+
+    tLight.textContent = reaction + 'ms';
+    tLight.className = 'light green';
+
+    // Best record
+    if (t.bestRecord === null || reaction < t.bestRecord) {
+      t.bestRecord = reaction;
+      localStorage.setItem('trafficBest', JSON.stringify(reaction));
+      tUpdateBest();
+    }
+
+    setTimeout(() => {
+      if (!t.endless && t.round >= t.roundsPerSession) tEnd();
+      else tNextRound();
+    }, 600);
+
+  } else if (t.phase === 'waiting') {
+    // Tapped early — false start!
+    t.phase = 'early';
+    if (t.timerId) { clearTimeout(t.timerId); t.timerId = null; }
+    t.falseStarts++;
+    t.combo = 0;
+
+    tSetLight('early', '✕');
+    tSetLabel('点早了！等绿色', 'early');
+    playTone(150, 0.25, 'sawtooth', 0.08);
+    vibrate([20, 30, 20]);
+    tCombo.textContent = '0';
+    tLast.textContent = '✕ 犯规';
+    tLast.style.color = '#e74c3c';
+
+    // Retry same round
+    t.round--;
+    setTimeout(() => tNextRound(), 900);
+  }
+}
+
+// Click handler
+tGameArea.addEventListener('click', (e) => {
+  if (t.phase === 'idle') return;
+  tHandleTap();
+});
+
+function tStart() {
+  initAudio();
+  showPauseBtn(t.endless);
+  t.phase = 'idle';
+  t.round = 0;
+  t.results = [];
+  t.falseStarts = 0;
+  t.combo = 0;
+  t.maxCombo = 0;
+  t.lastBest = t.bestRecord;
+
+  tCombo.textContent = '0';
+  tLast.textContent = '--';
+  tLast.style.color = '#333';
+  tProgress.style.width = '0%';
+  document.getElementById('tBtnStart').textContent = '测试中...';
+
+  tSetLight('idle', '');
+  tSetLabel('准备\n准备好后等红灯');
+  t.phase = 'waiting';
+  // Brief pause before first red
+  setTimeout(() => tNextRound(), 600);
+}
+
+function tEnd() {
+  t.phase = 'idle';
+  document.getElementById('tBtnStart').textContent = '再来一局';
+  tSetLight('idle', '');
+  tSetLabel('完成！');
+
+  if (t.results.length === 0) {
+    document.getElementById('tREmoji').textContent = '😅';
+    document.getElementById('tRTitle').textContent = '一个都没成功？';
+    document.getElementById('tRTime').textContent = '--';
+    document.getElementById('tRStat').textContent = '犯规 ' + t.falseStarts + ' 次';
+    document.getElementById('tRSub').textContent = '';
+    document.getElementById('tRComment').textContent = '别急，等灯变绿再点！';
+    document.getElementById('tRNewBest').style.display = 'none';
+    document.getElementById('tRStatGrid').innerHTML = '';
+    document.getElementById('tResultOverlay').classList.add('show');
+    return;
+  }
+
+  const avg = Math.round(t.results.reduce((a,b) => a+b, 0) / t.results.length);
+  const best = Math.min(...t.results);
+  const isBest = t.lastBest === null || best < t.lastBest;
+
+  document.getElementById('tREmoji').textContent =
+    avg < 180 ? '🤯' : avg < 230 ? '🔥' : avg < 280 ? '⚡' : avg < 350 ? '👍' : '😅';
+  document.getElementById('tRTitle').textContent =
+    avg < 180 ? '⚡ 闪电反应！' : avg < 230 ? '🔥 反应超快！' : avg < 280 ? '👍 反应很快！' : avg < 350 ? '💪 还不错' : '📈 继续练习！';
+  document.getElementById('tRTime').textContent = avg + 'ms';
+  document.getElementById('tRStat').textContent = '犯规 ' + t.falseStarts + ' 次';
+  document.getElementById('tRSub').textContent =
+    (t.endless ? t.round + ' 轮' : t.roundsPerSession + ' 轮') + ' · 最高连击 ' + t.maxCombo;
+  document.getElementById('tRNewBest').style.display = isBest ? 'block' : 'none';
+
+  const accuracy = t.results.length / (t.results.length + t.falseStarts) * 100;
+  const maxVal = Math.max(...t.results);
+  const minVal = Math.min(...t.results);
+  const range = maxVal - minVal;
+  const inconsistent = range > 150;
+
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  const comments = [];
+
+  // Main evaluation
+  if (avg < 180 && t.falseStarts === 0) {
+    comments.push(pick([
+      '完美中的完美！零犯规 + 平均不到 180ms，你的反应速度属于人类顶尖水平，大概是人群中的前 1%。这种反应速度在很多职业选手和飞行员中才能见到，天赋异禀！',
+      '零犯规 + 超快反应，堪称教科书级别的表现！你的大脑和身体之间的信号传递速度极快，这种神经反应效率是长期训练和良好基因的共同结果。继续保持！',
+      '不可思议的反应速度！在现代心理学实验中，180ms 以下已经属于精英反应水平。你不仅快，而且精准——零犯规说明你的冲动控制能力同样出色，这在压力环境下是极其宝贵的能力。',
+    ]));
+  } else if (avg < 180 && t.falseStarts <= 2) {
+    comments.push(pick([
+      '反应速度是顶尖水平（平均 180ms 以下）！虽然有一两次抢跑，但瑕不掩瑜。试着在等待时放松一点，不要预判变灯，让反应更自然发生，犯规自然会消失。',
+      '你的反应速度非常惊人！少量的犯规说明你等得有点心急——红绿灯测试的关键在于「被动等待、主动反应」。试试把注意力放在呼吸上，而不是死死盯着灯。',
+    ]));
+  } else if (avg < 230 && t.falseStarts === 0) {
+    comments.push(pick([
+      '零犯规 + 平均 230ms 以内，非常优秀的表现！你的注意力和反应速度都很出色，这种水平在业余运动员中已经是佼佼者了。',
+      '又快又稳，零犯规说明你的心理素质很好。不急于抢跑，等信号出现再爆发，这是高水平反应的表现。再练一段时间，突破 200ms 指日可待！',
+      '干净利落！零犯规的成绩比快但爱抢跑更有价值。在真实场景中（比如赛车起步、游泳出发），零犯规的稳定发挥比偶尔一次的极限速度更重要。',
+    ]));
+  } else if (avg < 230 && t.falseStarts <= 2) {
+    comments.push(pick([
+      '平均反应速度 230ms 以内，很快！不过犯规了 ' + t.falseStarts + ' 次，说明你可能有点紧张。试试深呼吸放松肩膀，不要预判绿色出现的那一刻，让身体自然反应反而更快。',
+      '底子很好，速度上乘。犯规 ' + t.falseStarts + ' 次略多——你在等待时可能肌肉绷得太紧了。放松手腕，保持轻微的活动状态，而不是僵硬地等待。',
+    ]));
+  } else if (avg < 280 && t.falseStarts === 0) {
+    comments.push(pick([
+      '良好的反应速度加上零犯规，这种稳定性和控制力非常值得肯定！虽然速度还有提升空间，但你已经掌握了红绿灯测试的核心——耐心等待，果断出手。',
+      '零失误完成测试！反应速度属于正常偏快水平。有趣的是，很多人在追求速度时反而会变慢（因为紧张），而你保持了很好的放松状态，这是继续进步的良好基础。',
+    ]));
+  } else if (avg < 280) {
+    comments.push(pick([
+      '反应速度良好，但犯规 ' + t.falseStarts + ' 次暴露了你的急切心态。心理学上有个有趣的现象：越是想着「我要快」反而会越慢，因为焦虑消耗了注意力资源。放松，专注等待，你会发现速度自然就上来了。',
+      '不错的底线速度，但犯规有点拖累你了。每次犯规不仅浪费一次机会，还会打断你的节奏。试试调整策略：前几次故意放慢一点，感受「等到了再点」的节奏感，然后再逐步提速。',
+      t.falseStarts > 3
+        ? '犯规 ' + t.falseStarts + ' 次确实偏多了。红绿灯测试本质上是一个「抑制—激发」的神经训练：抑制住提前出手的冲动，激发变绿瞬间的反应。建议你先做几组慢速练习，找到信号再反应的感觉。'
+        : '速度还有提升空间，犯规也在可接受范围。你可以试试在等待时默数节拍，或者在脑海里想象绿灯亮起的画面——心理预演对提升反应速度有实际的训练效果。',
+    ]));
+  } else if (avg < 350 && t.falseStarts <= 2) {
+    comments.push(pick([
+      '反应速度在正常范围内，而且你没有频繁抢跑，这是很好的习惯。大部分人刚开始练习时都会偏慢（300-400ms），但随着训练次数增加，神经通路会逐渐优化，速度会明显提升。',
+      '正常水平的反应速度，配合不错的耐心。建议你每天做 3-5 组红绿灯测试，坚持两周，你会发现平均反应时间能提升 50-80ms。关键在于持续刺激和大脑的适应性改变。',
+    ]));
+  } else if (avg < 350) {
+    comments.push(pick([
+      '反应速度正常，但犯规次数较多（' + t.falseStarts + ' 次）。你可能陷入了「越等越急」的循环：等得越久越怕错过，结果就抢跑了。记住：宁可慢一拍，不要抢一步。犯规付出的代价远比慢 100ms 更大。',
+      '需要调整一下策略。你在等待过程中可能一直在想「怎么还没变绿」，这种想法会让你越来越焦虑。试试转移注意力——想点别的事，用余光感知颜色变化，而不是死死盯着。',
+    ]));
+  } else {
+    comments.push(pick([
+      '别灰心！红绿灯反应测试是需要练习的，而且每个人的基线水平不一样。重要的是你在逐步进步。建议你先从 1 次模式练起，每次只专注一局，逐步找到感觉。',
+      '慢慢来，这完全正常。人的简单反应时间一般在 200-300ms 之间，但你现在的平均值偏高，可能是因为紧张或者注意力不够集中。放松心态，睡个好觉，下次再试。',
+      '不要跟别人比，跟昨天的自己比。你可以记录每次测试的平均值，观察变化趋势。很多人刚开始都在 350ms 以上，但坚持训练一周后能稳定在 250ms 左右——你的大脑适应能力远超你的想象。',
+    ]));
+  }
+
+  // Additional insights based on consistency
+  if (inconsistent && t.results.length >= 3) {
+    comments.push(pick([
+      '你的成绩波动比较大，最快 ' + minVal + 'ms 和最慢 ' + maxVal + 'ms 差了 ' + range + 'ms。这说明你的反应状态不太稳定，可能受注意力起伏影响。试着在每轮测试前做一次深呼吸，有助于稳定发挥。',
+      '你的表现起伏明显（极差 ' + range + 'ms）。好消息是：你的最好成绩 ' + minVal + 'ms 说明你的潜力很高！问题在于一致性。可以试试在注意力最集中的时间段训练，比如早起后或运动前。',
+    ]));
+  }
+
+  // Combo praise
+  if (t.maxCombo >= 5) {
+    comments.push(pick([
+      '最高 ' + t.maxCombo + ' 连击🔥！说明你有一段状态非常好的爆发期，那种「怎么点怎么有」的感觉很爽吧？连击的秘诀在于节奏感——每次点完之后快速归零，准备下一次。',
+      t.maxCombo + ' 连击！你找到了自己的节奏。好的节奏感是反应训练的关键——不是在等绿灯，而是在准备对绿灯做出反应。这两种心态的区别决定了你是被动等待还是主动爆发。',
+    ]));
+  }
+
+  // False start feedback
+  if (t.falseStarts > 3) {
+    comments.push(pick([
+      '犯规 ' + t.falseStarts + ' 次确实比较多。可以试试这个技巧：不要盯着灯看，而是用余光感知。当你视觉焦点在灯上时，大脑会不自觉地预判变灯，导致抢跑。',
+      '频繁犯规可能是因为你在等待时身体处于高度紧张状态。试试放松手指——不要悬停在屏幕上，而是轻轻放在旁边。看到绿色后再移动手指去点，这几十毫秒的移动时间反而能帮你避免抢跑。',
+    ]));
+  } else if (t.falseStarts === 0 && t.results.length >= 5) {
+    comments.push(pick([
+      '零犯规👏 这说明你的耐心和冲动控制能力非常出色。在心理学中，「延迟满足」能力与很多积极的生活 outcomes 相关——包括更好的学业成绩、更强的社交能力等。',
+      '零犯规完赛，这本身就是一项成就。很多人为了快几毫秒而频繁抢跑，但实际上每抢跑一次就浪费了更多时间。你是真正理解了「慢就是稳，稳就是快」的道理。',
+    ]));
+  }
+
+  // Endless mode specific
+  if (t.endless) {
+    if (t.round >= 30) {
+      comments.push(pick([
+        '在无尽模式下完成了 ' + t.round + ' 轮，你的专注力非常惊人！长时间保持高度警觉是很消耗精力的，你能做到说明你的注意力耐力很强。建议中间适当休息，避免反应迟钝影响状态。',
+        t.round + ' 轮！这不仅是反应速度的考验，更是精神耐力的挑战。在持续的压力下保持稳定发挥，这种能力在真实场景中（如长时间驾驶、竞技比赛）比单纯的速度更有价值。',
+      ]));
+    } else if (t.round >= 15) {
+      comments.push(pick([
+        '无尽模式完成了 ' + t.round + ' 轮，表现不错！随着轮次增加，疲劳会让你反应变慢、犯规增多。如果你发现后半程明显不如前半程，说明你的注意力续航还需要加强。',
+        t.round + ' 轮的续航说明你有不错的专注力。试着注意一下：你的犯规是否主要集中在后半段？如果是的话，可以分组训练——每组 10 轮，组间休息 30 秒。',
+      ]));
+    }
+  }
+  document.getElementById('tRComment').textContent = comments.join('\n\n');
+
+  document.getElementById('tRStatGrid').innerHTML = [
+    ['最快', best + 'ms'], ['平均', avg + 'ms'],
+    ['最慢', Math.max(...t.results) + 'ms'], ['连击', t.maxCombo],
+    ['成功', String(t.results.length)], ['犯规', String(t.falseStarts)],
+  ].map(s => `<div class="stat-item"><div class="lbl">${s[0]}</div><div class="val">${s[1]}</div></div>`).join('');
+
+  document.getElementById('tResultOverlay').classList.add('show');
+}
+
+function tCloseResult() {
+  document.getElementById('tResultOverlay').classList.remove('show');
+  tReset();
+}
+
+function tReset() {
+  showPauseBtn(false);
+  if (t.timerId) { clearTimeout(t.timerId); t.timerId = null; }
+  t.phase = 'idle';
+  t.round = 0;
+  t.results = [];
+  t.falseStarts = 0;
+  t.combo = 0;
+  t.maxCombo = 0;
+
+  tSetLight('idle', '');
+  tSetLabel('点击开始\n看灯的颜色点');
+  tRound.textContent = '0 / ' + t.roundsPerSession;
+  tRoundLabel.textContent = '轮次';
+  tProgress.style.width = '0%';
+  tLast.textContent = '--';
+  tLast.style.color = '#333';
+  tCombo.textContent = '0';
+  document.getElementById('tBtnStart').textContent = '开始测试';
+}
+
+// Buttons
+document.getElementById('tBtnStart').addEventListener('click', () => {
+  if (t.phase === 'idle') tStart();
+});
+document.getElementById('tBtnReset').addEventListener('click', tReset);
+document.getElementById('tRBtnClose').addEventListener('click', tCloseResult);
+
+// Sub-mode toggle
+document.querySelectorAll('#modeTraffic .sub-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (t.phase !== 'idle') return;
+    document.querySelectorAll('#modeTraffic .sub-mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    t.endless = btn.dataset.tmode === 'endless';
+    // Show/hide round selector
+    document.getElementById('tRoundSelector').style.display = t.endless ? 'none' : 'flex';
+    tReset();
+    document.getElementById('tBtnStart').textContent = t.endless ? '开始无尽' : '开始测试';
+  });
+});
+
+// Round selector
+document.querySelectorAll('#modeTraffic .rs-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (t.phase !== 'idle') return;
+    document.querySelectorAll('#modeTraffic .rs-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    t.roundsPerSession = parseInt(btn.dataset.tr);
+    tReset();
+  });
+});
+
+// Init
+tSetLight('idle', '');
+tSetLabel('点击开始\n看灯的颜色点');
+tRound.textContent = '0 / ' + t.roundsPerSession;
+
+
+// =============================================
+// STROOP TEST
+// =============================================
+const ST_ROUNDS = 10;
+const stCMap = [
+  { name: '红色', hex: '#e74c3c' },
+  { name: '蓝色', hex: '#4A90D9' },
+  { name: '绿色', hex: '#27ae60' },
+  { name: '黄色', hex: '#f1c40f' },
+  { name: '紫色', hex: '#9B59B6' },
+];
+const stWords = ['红', '蓝', '绿', '黄', '紫'];
+const st = {
+  phase: 'idle', round: 0, results: [], combo: 0, maxCombo: 0,
+  correctCount: 0, wrongCount: 0, startTime: 0,
+  endless: false, bestRecord: JSON.parse(localStorage.getItem('stroopBest') || 'null'),
+  lastBest: null, wordIdx: 0, colorIdx: 0, options: [],
+};
+
+const stWord = document.getElementById('stWord');
+const stGrid = document.getElementById('stGrid');
+const stStatus = document.getElementById('stStatus');
+const stProgress = document.getElementById('stProgress');
+const stRound = document.getElementById('stRound');
+const stLast = document.getElementById('stLast');
+const stBest = document.getElementById('stBest');
+const stCombo = document.getElementById('stCombo');
+const stBtnStart = document.getElementById('stBtnStart');
+
+function stUpBest() { stBest.textContent = st.bestRecord ? st.bestRecord + 'ms' : '--'; }
+stUpBest();
+
+function stShowStatus(text, cls) {
+  stWord.style.display = 'none'; stGrid.style.display = 'none';
+  stStatus.style.display = 'block'; stStatus.textContent = text;
+  stStatus.className = 'status-text' + (cls ? ' ' + cls : '');
+}
+
+function stNext() {
+  if (isPaused) { activeGameNext = stNext; return; }
+  if (!st.endless && st.round >= ST_ROUNDS) { stEnd(); return; }
+  st.phase = 'showing'; st.round++;
+  stRound.textContent = st.endless ? st.round + ' 轮' : st.round + ' / ' + ST_ROUNDS;
+  stProgress.style.width = st.endless ? '' : ((st.round - 1) / ST_ROUNDS * 100) + '%';
+  do { st.wordIdx = Math.floor(Math.random() * stCMap.length); } while (false);
+  do { st.colorIdx = Math.floor(Math.random() * stCMap.length); } while (st.colorIdx === st.wordIdx);
+  const opts = new Set([st.colorIdx]);
+  while (opts.size < 4) { const r = Math.floor(Math.random() * stCMap.length); if (r !== st.wordIdx) opts.add(r); }
+  st.options = [...opts].sort(() => Math.random() - 0.5);
+  stStatus.style.display = 'none';
+  stWord.style.display = 'block'; stWord.textContent = stWords[st.wordIdx]; stWord.style.color = stCMap[st.colorIdx].hex;
+  stGrid.style.display = 'grid';
+  stGrid.innerHTML = st.options.map((ci, i) =>
+    `<div class="color-btn" data-idx="${i}" style="color:${stCMap[ci].hex};border-color:${stCMap[ci].hex}40">${stCMap[ci].name}</div>`
+  ).join('');
+  st.startTime = performance.now();
+  playTone(520, 0.05, 'sine', 0.06);
+}
+
+stGrid.addEventListener('click', e => {
+  const btn = e.target.closest('.color-btn');
+  if (!btn || st.phase !== 'showing') return;
+  st.phase = 'result';
+  const idx = parseInt(btn.dataset.idx);
+  const chosen = st.options[idx];
+  const correct = chosen === st.colorIdx;
+  const reaction = Math.round(performance.now() - st.startTime);
+  if (correct) {
+    st.correctCount++; st.combo++; if (st.combo > st.maxCombo) st.maxCombo = st.combo;
+    st.results.push(reaction); btn.classList.add('correct-glow');
+    playTone(660, 0.06, 'sine', 0.1); vibrate(6);
+    if (st.bestRecord === null || reaction < st.bestRecord) { st.bestRecord = reaction; localStorage.setItem('stroopBest', JSON.stringify(reaction)); stUpBest(); }
+  } else {
+    st.wrongCount++; st.combo = 0; btn.classList.add('wrong-glow');
+    stGrid.querySelectorAll('.color-btn').forEach((b, i) => { if (st.options[i] === st.colorIdx) b.classList.add('correct-glow'); });
+    playTone(180, 0.18, 'sawtooth', 0.06); vibrate([15, 20]);
+  }
+  stLast.textContent = correct ? reaction + 'ms' : '✕';
+  stLast.style.color = correct ? '#27ae60' : '#e74c3c';
+  stCombo.textContent = st.combo >= 3 ? st.combo + ' 🔥' : String(st.combo);
+  setTimeout(() => { if (!st.endless && st.round >= ST_ROUNDS) stEnd(); else stNext(); }, correct ? 600 : 1000);
+});
+
+function stStart() {
+  initAudio();
+  showPauseBtn(st.endless);
+  st.phase = 'idle'; st.round = 0; st.results = []; st.combo = 0; st.maxCombo = 0;
+  st.correctCount = 0; st.wrongCount = 0; st.lastBest = st.bestRecord;
+  stCombo.textContent = '0'; stLast.textContent = '--'; stLast.style.color = '#333';
+  stProgress.style.width = '0%'; stBtnStart.textContent = '测试中...';
+  stNext();
+}
+
+function stEnd() {
+  st.phase = 'idle'; stShowStatus('完成！', 'ready'); stBtnStart.textContent = '再来一局';
+  if (st.correctCount === 0) {
+    document.getElementById('stREmoji').textContent = '😅';
+    document.getElementById('stRTitle').textContent = '一个都没对？';
+    document.getElementById('stRTime').textContent = '--';
+    document.getElementById('stRStat').textContent = '正确率 0%';
+    document.getElementById('stRComment').textContent = '注意看字的颜色，不是字义！';
+    document.getElementById('stRNewBest').style.display = 'none';
+    document.getElementById('stRStatGrid').innerHTML = '';
+    document.getElementById('stResultOverlay').classList.add('show');
+    return;
+  }
+  const avg = Math.round(st.results.reduce((a, b) => a + b, 0) / st.results.length);
+  const best = Math.min(...st.results);
+  const acc = Math.round(st.correctCount / (st.correctCount + st.wrongCount) * 100);
+  const isBest = st.lastBest === null || best < st.lastBest;
+  document.getElementById('stREmoji').textContent = acc >= 90 && avg < 1500 ? '🤯' : acc >= 80 ? '🔥' : '👍';
+  document.getElementById('stRTitle').textContent = acc >= 90 ? '🎨 抗干扰达人！' : acc >= 80 ? '⚡ 很专注！' : '💪 继续练习';
+  document.getElementById('stRTime').textContent = avg + 'ms';
+  document.getElementById('stRStat').textContent = `正确率 ${acc}% · 答对 ${st.correctCount}/${st.correctCount + st.wrongCount}`;
+  document.getElementById('stRSub').textContent = (st.endless ? st.round + ' 轮' : ST_ROUNDS + ' 轮') + ' · 最高连击 ' + st.maxCombo;
+  document.getElementById('stRNewBest').style.display = isBest ? 'block' : 'none';
+  document.getElementById('stRComment').textContent = acc >= 90 ? '你的抗干扰能力非常强！大脑能快速抑制无关信息，这是高级认知功能的表现。' : acc >= 70 ? '有一定抗干扰能力，Stroop 效应人人都有，多练能减少干扰。' : 'Stroop 效应很正常！字义和颜色的冲突让大脑需要额外处理时间，坚持训练会改善。';
+  document.getElementById('stRStatGrid').innerHTML = [
+    ['最快', best + 'ms'], ['平均', avg + 'ms'], ['正确率', acc + '%'], ['连击', st.maxCombo],
+  ].map(s => `<div class="stat-item"><div class="lbl">${s[0]}</div><div class="val">${s[1]}</div></div>`).join('');
+  document.getElementById('stResultOverlay').classList.add('show');
+}
+
+function stCloseResult() { document.getElementById('stResultOverlay').classList.remove('show'); stReset(); }
+function stReset() {
+  showPauseBtn(false);
+  st.phase = 'idle'; st.round = 0; st.results = []; st.combo = 0; st.maxCombo = 0;
+  st.correctCount = 0; st.wrongCount = 0;
+  stShowStatus('点击下方开始', 'ready');
+  stRound.textContent = '0 / ' + ST_ROUNDS; stProgress.style.width = '0%';
+  stLast.textContent = '--'; stLast.style.color = '#333'; stCombo.textContent = '0';
+  stBtnStart.textContent = '开始测试';
+}
+document.getElementById('stBtnStart').addEventListener('click', () => { if (st.phase === 'idle') stStart(); });
+document.getElementById('stBtnReset').addEventListener('click', stReset);
+document.getElementById('stRBtnClose').addEventListener('click', stCloseResult);
+document.querySelectorAll('#modeStroop .sub-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (st.phase !== 'idle') return;
+    document.querySelectorAll('#modeStroop .sub-mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    st.endless = btn.dataset.smode2 === 'endless';
+    stReset(); stBtnStart.textContent = st.endless ? '开始无尽' : '开始测试';
+  });
+});
+stShowStatus('点击下方开始', 'ready'); stRound.textContent = '0 / ' + ST_ROUNDS;
+
+
+// =============================================
+// SIMON GAME
+// =============================================
+const sg = {
+  phase: 'idle', // idle | watching | input | result
+  sequence: [], playerIdx: 0, round: 0, lives: 3,
+  endless: false, bestRecord: JSON.parse(localStorage.getItem('simonBest') || 'null'),
+  playing: false,
+};
+const sgStatus = document.getElementById('sgStatus');
+const sgGrid = document.getElementById('sgGrid');
+const sgSeqLen = document.getElementById('sgSeqLen');
+const sgLives = document.getElementById('sgLives');
+const sgBest = document.getElementById('sgBest');
+const sgBtnStart = document.getElementById('sgBtnStart');
+
+function sgUpBest() { sgBest.textContent = sg.bestRecord ? sg.bestRecord + ' 步' : '--'; }
+sgUpBest();
+
+function sgShowStatus(text, cls) {
+  sgStatus.textContent = text;
+  sgStatus.className = 'status-text' + (cls ? ' ' + cls : '');
+}
+
+function sgLight(idx, on) {
+  const pads = sgGrid.querySelectorAll('.simon-pad');
+  pads[idx].classList.toggle('lit', on);
+  if (on) {
+    const freqs = [330, 440, 550, 660];
+    playTone(freqs[idx], 0.12, 'sine', 0.12);
+  }
+}
+
+function sgPlaySeq(cb) {
+  sg.phase = 'watching';
+  let i = 0;
+  function step() {
+    if (i >= sg.sequence.length) { cb(); return; }
+    sgLight(sg.sequence[i], true);
+    setTimeout(() => { sgLight(sg.sequence[i], false); i++; setTimeout(step, 120); }, 350);
+  }
+  step();
+}
+
+function sgNextRound() {
+  sg.seqLen = sg.sequence.length;
+  sgSeqLen.textContent = sg.seqLen;
+  // Add new step
+  sg.sequence.push(Math.floor(Math.random() * 4));
+  sg.playerIdx = 0;
+  sgShowStatus('👀 记住顺序...', 'waiting');
+  setTimeout(() => {
+    sgPlaySeq(() => {
+      sg.phase = 'input';
+      sgShowStatus('🎯 你的回合', '');
+    });
+  }, 400);
+}
+
+function sgPadClick(idx) {
+  if (sg.phase !== 'input') return;
+  sgLight(idx, true);
+  setTimeout(() => sgLight(idx, false), 200);
+
+  if (idx === sg.sequence[sg.playerIdx]) {
+    sg.playerIdx++;
+    if (sg.playerIdx >= sg.sequence.length) {
+      sg.phase = 'result';
+      sg.round++;
+      playTone(880, 0.08, 'sine', 0.1); vibrate(8);
+      // Best record
+      if (sg.bestRecord === null || sg.sequence.length > sg.bestRecord) {
+        sg.bestRecord = sg.sequence.length;
+        localStorage.setItem('simonBest', JSON.stringify(sg.sequence.length));
+        sgUpBest();
+      }
+      if (!sg.endless) {
+        // Classic: keep going until lives run out
+      }
+      setTimeout(() => sgNextRound(), 500);
+    }
+  } else {
+    // Wrong!
+    playTone(150, 0.25, 'sawtooth', 0.08); vibrate([20, 30, 20]);
+    sg.lives--;
+    sgLives.textContent = sg.lives;
+    if (sg.lives <= 0 || sg.endless) {
+      sgEnd();
+    } else {
+      sgShowStatus('❤️ 剩余 ' + sg.lives + ' 次机会', '');
+      setTimeout(() => sgNextRound(), 1000);
+    }
+  }
+}
+
+// Simon pad clicks
+document.querySelectorAll('#modeSimon .simon-pad').forEach(pad => {
+  pad.addEventListener('click', () => sgPadClick(parseInt(pad.dataset.idx)));
+});
+
+function sgStart() {
+  initAudio();
+  sg.phase = 'idle'; sg.sequence = []; sg.playerIdx = 0; sg.round = 0;
+  sg.lives = sg.endless ? 1 : 3;
+  sgLives.textContent = sg.lives;
+  sgGrid.style.display = 'grid'; sgStatus.style.display = 'block';
+  sgBtnStart.textContent = '进行中...';
+  sgSeqLen.textContent = '0';
+  setTimeout(() => sgNextRound(), 400);
+}
+
+function sgEnd() {
+  sg.phase = 'idle';
+  sgBtnStart.textContent = '再来一局';
+  sgShowStatus('游戏结束', 'ready');
+  const maxSeq = sg.sequence.length > 0 ? sg.sequence.length : 0;
+  const isBest = sg.bestRecord !== null && maxSeq >= sg.bestRecord;
+  document.getElementById('sgREmoji').textContent = maxSeq >= 10 ? '🤯' : maxSeq >= 7 ? '🔥' : maxSeq >= 4 ? '⚡' : '👍';
+  document.getElementById('sgRTitle').textContent = maxSeq >= 10 ? '🧠 记忆大师！' : maxSeq >= 7 ? '🔥 记忆力超强！' : maxSeq >= 4 ? '💪 还不错' : '📈 继续练习！';
+  document.getElementById('sgRTime').textContent = maxSeq + ' 步';
+  document.getElementById('sgRStat').textContent = '最高序列 ' + maxSeq;
+  document.getElementById('sgRSub').textContent = '完成 ' + sg.round + ' 轮 · 经典模式';
+  document.getElementById('sgRNewBest').style.display = isBest ? 'block' : 'none';
+  document.getElementById('sgRComment').textContent = maxSeq >= 8 ? '你的短期记忆和序列学习能力非常出色！' : maxSeq >= 5 ? '记忆力良好，多练能记住更长的序列。' : '西蒙游戏考验工作记忆，每天练几次序列长度会逐步增加。';
+  document.getElementById('sgRStatGrid').innerHTML = [
+    ['最长序列', maxSeq + ' 步'], ['完成轮数', String(sg.round)],
+    ['剩余生命', String(sg.lives)], ['🏆 最佳', sg.bestRecord ? sg.bestRecord + ' 步' : '--'],
+  ].map(s => `<div class="stat-item"><div class="lbl">${s[0]}</div><div class="val">${s[1]}</div></div>`).join('');
+  document.getElementById('sgResultOverlay').classList.add('show');
+}
+
+function sgCloseResult() { document.getElementById('sgResultOverlay').classList.remove('show'); sgReset(); }
+function sgReset() {
+  sg.phase = 'idle'; sg.sequence = []; sg.playerIdx = 0; sg.round = 0;
+  sg.lives = sg.endless ? 1 : 3;
+  sgLives.textContent = sg.lives; sgSeqLen.textContent = '0';
+  sgGrid.style.display = 'none'; sgShowStatus('点击下方开始', 'ready');
+  sgBtnStart.textContent = '开始游戏';
+  // Reset pads
+  document.querySelectorAll('#modeSimon .simon-pad').forEach(p => p.classList.remove('lit'));
+}
+document.getElementById('sgBtnStart').addEventListener('click', () => { if (sg.phase === 'idle') sgStart(); });
+document.getElementById('sgBtnReset').addEventListener('click', sgReset);
+document.getElementById('sgRBtnClose').addEventListener('click', sgCloseResult);
+document.querySelectorAll('#modeSimon .sub-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (sg.phase !== 'idle') return;
+    document.querySelectorAll('#modeSimon .sub-mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    sg.endless = btn.dataset.smode3 === 'endless';
+    sgReset(); sgBtnStart.textContent = sg.endless ? '开始无尽' : '开始游戏';
+  });
+});
+sgShowStatus('点击下方开始', 'ready');
+
+
+// =============================================
+// CHOICE REACTION
+// =============================================
+const CR_ROUNDS = 15;
+const crPositions = [
+  { x: 0, y: -90 }, { x: 78, y: -45 }, { x: 78, y: 45 },
+  { x: 0, y: 90 }, { x: -78, y: 45 }, { x: -78, y: -45 },
+];
+const cr = {
+  phase: 'idle', round: 0, results: [], correctCount: 0, wrongCount: 0,
+  startTime: 0, timerId: null, endless: false,
+  bestRecord: JSON.parse(localStorage.getItem('choiceBest') || 'null'), lastBest: null,
+  numBtns: 4, targetIdx: 0,
+};
+const crGameArea = document.getElementById('crGameArea');
+const crStatus = document.getElementById('crStatus');
+const crProgress = document.getElementById('crProgress');
+const crRound = document.getElementById('crRound');
+const crLast = document.getElementById('crLast');
+const crBest = document.getElementById('crBest');
+const crCorrect = document.getElementById('crCorrect');
+const crBtnStart = document.getElementById('crBtnStart');
+
+function crUpBest() { crBest.textContent = cr.bestRecord ? cr.bestRecord + 'ms' : '--'; }
+crUpBest();
+
+function crMakeBtns(n) {
+  crGameArea.querySelectorAll('.choice-btn').forEach(el => el.remove());
+  const btns = [];
+  for (let i = 0; i < n; i++) {
+    const btn = document.createElement('div');
+    btn.className = 'choice-btn'; btn.dataset.idx = i;
+    const pos = crPositions[i % crPositions.length];
+    const ring = Math.floor(i / crPositions.length);
+    const scale = 1 + ring * 0.15;
+    btn.style.marginLeft = (-32 + pos.x * scale) + 'px';
+    btn.style.marginTop = (-32 + pos.y * scale) + 'px';
+    btn.textContent = i + 1;
+    crGameArea.appendChild(btn);
+    btns.push(btn);
+  }
+  return btns;
+}
+
+let crBtns = [];
+
+function crNext() {
+  if (isPaused) { activeGameNext = crNext; return; }
+  if (!cr.endless && cr.round >= CR_ROUNDS) { crEnd(); return; }
+  cr.phase = 'showing'; cr.round++; cr.startTime = 0;
+  crRound.textContent = cr.endless ? cr.round + ' 轮' : cr.round + ' / ' + CR_ROUNDS;
+  crProgress.style.width = cr.endless ? '' : ((cr.round - 1) / CR_ROUNDS * 100) + '%';
+  // Pick random target
+  cr.numBtns = cr.endless ? Math.min(6, 4 + Math.floor(cr.round / 10)) : 4;
+  crBtns = crMakeBtns(cr.numBtns);
+  cr.targetIdx = Math.floor(Math.random() * cr.numBtns);
+  crStatus.style.display = 'none';
+  // Delay then light up
+  const delay = cr.endless ? Math.max(600, 1500 - cr.round * 15) : 1000 + Math.random() * 1000;
+  cr.timerId = setTimeout(() => {
+    if (cr.phase !== 'showing') return;
+    cr.startTime = performance.now();
+    crBtns.forEach((b, i) => {
+      if (i === cr.targetIdx) b.classList.add('lit');
+    });
+    playTone(660, 0.06, 'sine', 0.08);
+  }, delay);
+}
+
+crGameArea.addEventListener('click', e => {
+  const btn = e.target.closest('.choice-btn');
+  if (!btn || cr.phase !== 'showing') return;
+  const idx = parseInt(btn.dataset.idx);
+  if (!cr.startTime) return; // not yet lit
+  cr.phase = 'result';
+  if (cr.timerId) { clearTimeout(cr.timerId); cr.timerId = null; }
+  const reaction = Math.round(performance.now() - cr.startTime);
+  if (idx === cr.targetIdx) {
+    cr.correctCount++; cr.results.push(reaction);
+    btn.classList.add('hit');
+    playTone(880, 0.06, 'sine', 0.1); vibrate(6);
+    if (cr.bestRecord === null || reaction < cr.bestRecord) { cr.bestRecord = reaction; localStorage.setItem('choiceBest', JSON.stringify(reaction)); crUpBest(); }
+    crLast.textContent = reaction + 'ms'; crLast.style.color = '#27ae60';
+  } else {
+    cr.wrongCount++; btn.classList.add('miss');
+    playTone(180, 0.15, 'sawtooth', 0.06); vibrate([10, 15]);
+    // Highlight correct
+    crBtns[cr.targetIdx].classList.add('hit');
+    crLast.textContent = '✕'; crLast.style.color = '#e74c3c';
+  }
+  crCorrect.textContent = cr.correctCount;
+  crStatus.style.display = 'block';
+  crStatus.textContent = idx === cr.targetIdx ? reaction + 'ms' : '点错了！';
+  crStatus.className = 'status-text';
+  setTimeout(() => { if (!cr.endless && cr.round >= CR_ROUNDS) crEnd(); else crNext(); }, 600);
+});
+
+function crStart() {
+  initAudio();
+  showPauseBtn(cr.endless);
+  cr.phase = 'idle'; cr.round = 0; cr.results = []; cr.correctCount = 0; cr.wrongCount = 0;
+  cr.lastBest = cr.bestRecord; cr.startTime = 0;
+  crLast.textContent = '--'; crLast.style.color = '#333'; crCorrect.textContent = '0';
+  crProgress.style.width = '0%'; crBtnStart.textContent = '训练中...';
+  crGameArea.querySelectorAll('.choice-btn').forEach(el => el.remove());
+  crStatus.style.display = 'block'; crStatus.textContent = '准备...'; crStatus.className = 'status-text';
+  crNext();
+}
+
+function crEnd() {
+  cr.phase = 'idle'; crBtnStart.textContent = '再来一局';
+  crStatus.textContent = '完成！'; crStatus.className = 'status-text ready';
+  if (cr.correctCount === 0) {
+    document.getElementById('crREmoji').textContent = '😅';
+    document.getElementById('crRTitle').textContent = '一个都没对？';
+    document.getElementById('crRTime').textContent = '--';
+    document.getElementById('crRStat').textContent = '正确率 0%';
+    document.getElementById('crRComment').textContent = '等按钮亮起来再点！';
+    document.getElementById('crRNewBest').style.display = 'none';
+    document.getElementById('crRStatGrid').innerHTML = '';
+    document.getElementById('crResultOverlay').classList.add('show');
+    return;
+  }
+  const avg = Math.round(cr.results.reduce((a, b) => a + b, 0) / cr.results.length);
+  const best = Math.min(...cr.results);
+  const acc = Math.round(cr.correctCount / (cr.correctCount + cr.wrongCount) * 100);
+  const isBest = cr.lastBest === null || best < cr.lastBest;
+  document.getElementById('crREmoji').textContent = avg < 350 && acc >= 90 ? '🤯' : avg < 500 ? '🔥' : '👍';
+  document.getElementById('crRTitle').textContent = avg < 350 ? '🎯 反应超快！' : avg < 500 ? '⚡ 反应不错！' : '💪 继续加油';
+  document.getElementById('crRTime').textContent = avg + 'ms';
+  document.getElementById('crRStat').textContent = `正确率 ${acc}% · 答对 ${cr.correctCount}/${cr.correctCount + cr.wrongCount}`;
+  document.getElementById('crRSub').textContent = (cr.endless ? cr.round + ' 轮' : CR_ROUNDS + ' 轮');
+  document.getElementById('crRNewBest').style.display = isBest ? 'block' : 'none';
+  document.getElementById('crRComment').textContent = avg < 350 ? '多目标选择反应这么快，你的手眼协调能力很强！' : avg < 500 ? '反应速度良好，在多个目标中快速定位的能力不错。' : '选择反应比简单反应难一些，因为需要先判断哪个是目标，多练就快了。';
+  document.getElementById('crRStatGrid').innerHTML = [
+    ['最快', best + 'ms'], ['平均', avg + 'ms'], ['正确率', acc + '%'], ['答对', String(cr.correctCount)],
+  ].map(s => `<div class="stat-item"><div class="lbl">${s[0]}</div><div class="val">${s[1]}</div></div>`).join('');
+  document.getElementById('crResultOverlay').classList.add('show');
+}
+
+function crCloseResult() { document.getElementById('crResultOverlay').classList.remove('show'); crReset(); }
+function crReset() {
+  showPauseBtn(false);
+  if (cr.timerId) { clearTimeout(cr.timerId); cr.timerId = null; }
+  cr.phase = 'idle'; cr.round = 0; cr.results = []; cr.correctCount = 0; cr.wrongCount = 0; cr.startTime = 0;
+  crGameArea.querySelectorAll('.choice-btn').forEach(el => el.remove());
+  crStatus.style.display = 'block'; crStatus.textContent = '点击下方开始'; crStatus.className = 'status-text ready';
+  crRound.textContent = '0 / ' + CR_ROUNDS; crProgress.style.width = '0%';
+  crLast.textContent = '--'; crLast.style.color = '#333'; crCorrect.textContent = '0';
+  crBtnStart.textContent = '开始训练';
+}
+document.getElementById('crBtnStart').addEventListener('click', () => { if (cr.phase === 'idle') crStart(); });
+document.getElementById('crBtnReset').addEventListener('click', crReset);
+document.getElementById('crRBtnClose').addEventListener('click', crCloseResult);
+document.querySelectorAll('#modeChoice .sub-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (cr.phase !== 'idle') return;
+    document.querySelectorAll('#modeChoice .sub-mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    cr.endless = btn.dataset.cmode === 'endless';
+    crReset(); crBtnStart.textContent = cr.endless ? '开始无尽' : '开始训练';
+  });
+});
+crRound.textContent = '0 / ' + CR_ROUNDS;
+
+
+// =============================================
+// NUMBER FLASH
+// =============================================
+const NF_ROUNDS = 10;
+const nf = {
+  phase: 'idle', round: 0, combo: 0, maxCombo: 0,
+  correctCount: 0, wrongCount: 0, endless: false,
+  numDigits: 4, flashTime: 1000, answer: 0,
+  bestRecord: JSON.parse(localStorage.getItem('numflashBest') || 'null'),
+  lastBest: null,
+};
+const nfNum = document.getElementById('nfNum');
+const nfOptions = document.getElementById('nfOptions');
+const nfStatus = document.getElementById('nfStatus');
+const nfProgress = document.getElementById('nfProgress');
+const nfRound = document.getElementById('nfRound');
+const nfCorrect = document.getElementById('nfCorrect');
+const nfWrong = document.getElementById('nfWrong');
+const nfCombo = document.getElementById('nfCombo');
+const nfBtnStart = document.getElementById('nfBtnStart');
+const nfTimer = document.getElementById('nfTimer');
+
+function nfShowStatus(text, cls) {
+  nfNum.classList.add('hidden'); nfOptions.style.display = 'none';
+  nfStatus.style.display = 'block'; nfStatus.textContent = text;
+  nfStatus.className = 'status-text' + (cls ? ' ' + cls : '');
+  nfTimer.style.width = '100%'; nfTimer.style.transition = 'none';
+}
+
+function nfShowNum() {
+  nfNum.classList.remove('hidden');
+  nfNum.style.display = 'block';
+  nfOptions.style.display = 'none';
+  nfStatus.style.display = 'none';
+}
+
+function nfGenNum(digits) {
+  const min = Math.pow(10, digits - 1);
+  const max = Math.pow(10, digits) - 1;
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function nfGenOptions(correct) {
+  const opts = new Set([correct]);
+  while (opts.size < 4) {
+    const offset = (Math.floor(Math.random() * 9) + 1) * (Math.random() < 0.5 ? 1 : -1) * Math.floor(Math.random() * 3 + 1);
+    const w = correct + offset;
+    if (w >= Math.pow(10, nf.numDigits - 1) && w <= Math.pow(10, nf.numDigits) - 1 && w !== correct) opts.add(w);
+  }
+  return [...opts].sort(() => Math.random() - 0.5);
+}
+
+function nfNext() {
+  if (isPaused) { activeGameNext = nfNext; return; }
+  if (!nf.endless && nf.round >= NF_ROUNDS) { nfEnd(); return; }
+  nf.phase = 'hidden'; nf.round++;
+  nfRound.textContent = nf.endless ? nf.round + ' 轮' : nf.round + ' / ' + NF_ROUNDS;
+  nfProgress.style.width = nf.endless ? '' : ((nf.round - 1) / NF_ROUNDS * 100) + '%';
+  nf.answer = nfGenNum(nf.numDigits);
+  nfShowNum();
+  nfNum.textContent = String(nf.answer);
+  // Animate countdown timer
+  nfTimer.style.transition = 'none';
+  nfTimer.style.width = '100%';
+  void nfTimer.offsetWidth;
+  const ft = nf.endless ? Math.max(400, 1000 - nf.round * 20) : 1000;
+  nfTimer.style.transition = 'width ' + ft + 'ms linear';
+  nfTimer.style.width = '0%';
+  setTimeout(() => {
+    if (nf.phase !== 'hidden') return;
+    nf.phase = 'showing';
+    nfNum.classList.add('hidden');
+    nfOptions.style.display = 'grid';
+    const opts = nfGenOptions(nf.answer);
+    nfOptions.innerHTML = opts.map((v, i) =>
+      `<div class="num-btn" data-idx="${i}">${v}</div>`
+    ).join('');
+    playTone(660, 0.05, 'sine', 0.06);
+  }, ft);
+}
+
+nfOptions.addEventListener('click', e => {
+  const btn = e.target.closest('.num-btn');
+  if (!btn || nf.phase !== 'showing') return;
+  nf.phase = 'result';
+  const idx = parseInt(btn.dataset.idx);
+  const val = parseInt(btn.textContent);
+  const correct = val === nf.answer;
+  if (correct) {
+    nf.correctCount++; nf.combo++; if (nf.combo > nf.maxCombo) nf.maxCombo = nf.combo;
+    btn.classList.add('correct-glow');
+    playTone(660, 0.06, 'sine', 0.1); vibrate(6);
+    if (nf.bestRecord === null || nf.round > (nf.bestRecord || 0)) {
+      nf.bestRecord = nf.round;
+      localStorage.setItem('numflashBest', JSON.stringify(nf.round));
+    }
+    if (nf.endless && nf.round % 5 === 0 && nf.numDigits < 8) nf.numDigits++;
+  } else {
+    nf.wrongCount++; nf.combo = 0; btn.classList.add('wrong-glow');
+    nfOptions.querySelectorAll('.num-btn').forEach((b, i) => {
+      if (parseInt(b.textContent) === nf.answer) b.classList.add('correct-glow');
+    });
+    playTone(180, 0.15, 'sawtooth', 0.06); vibrate([10, 15]);
+  }
+  nfCorrect.textContent = nf.correctCount;
+  nfWrong.textContent = nf.wrongCount;
+  nfCombo.textContent = nf.combo >= 3 ? nf.combo + ' 🔥' : String(nf.combo);
+  setTimeout(() => { if (!nf.endless && nf.round >= NF_ROUNDS) nfEnd(); else nfNext(); }, correct ? 700 : 1100);
+});
+
+function nfStart() {
+  initAudio();
+  showPauseBtn(nf.endless);
+  nf.phase = 'idle'; nf.round = 0; nf.correctCount = 0; nf.wrongCount = 0;
+  nf.combo = 0; nf.maxCombo = 0; nf.numDigits = 4;
+  nfCorrect.textContent = '0'; nfWrong.textContent = '0'; nfCombo.textContent = '0';
+  nfProgress.style.width = '0%'; nfBtnStart.textContent = '测试中...';
+  nfShowStatus('准备...', '');
+  setTimeout(() => nfNext(), 400);
+}
+
+function nfEnd() {
+  nf.phase = 'idle'; nfBtnStart.textContent = '再来一局';
+  nfShowStatus('完成！', 'ready');
+  if (nf.correctCount === 0) {
+    document.getElementById('nfREmoji').textContent = '😅';
+    document.getElementById('nfRTitle').textContent = '一个都没对？';
+    document.getElementById('nfRTime').textContent = '--';
+    document.getElementById('nfRStat').textContent = '正确率 0%';
+    document.getElementById('nfRComment').textContent = '仔细记住闪现的数字！';
+    document.getElementById('nfRNewBest').style.display = 'none';
+    document.getElementById('nfRStatGrid').innerHTML = '';
+    document.getElementById('nfResultOverlay').classList.add('show');
+    return;
+  }
+  const acc = Math.round(nf.correctCount / (nf.correctCount + nf.wrongCount) * 100);
+  document.getElementById('nfREmoji').textContent = acc >= 80 && nf.numDigits >= 5 ? '🤯' : acc >= 70 ? '🔥' : '👍';
+  document.getElementById('nfRTitle').textContent = acc >= 80 ? '🔢 记忆力超强！' : acc >= 60 ? '💪 记忆力不错！' : '📈 继续练习！';
+  document.getElementById('nfRTime').textContent = nf.numDigits + ' 位数';
+  document.getElementById('nfRStat').textContent = `正确率 ${acc}% · 答对 ${nf.correctCount}/${nf.correctCount + nf.wrongCount}`;
+  document.getElementById('nfRSub').textContent = (nf.endless ? nf.round + ' 轮' : NF_ROUNDS + ' 轮') + ' · 最高连击 ' + nf.maxCombo;
+  document.getElementById('nfRNewBest').style.display = 'none';
+  document.getElementById('nfRComment').textContent = acc >= 80 ? '你的视觉短期记忆非常出色！能记住多位数字并准确复述。' : acc >= 60 ? '记忆力正常偏上水平，通过练习能进一步强化视觉记忆。' : '数字记忆需要练习，尝试在脑中把数字分组来加强记忆。';
+  document.getElementById('nfRStatGrid').innerHTML = [
+    ['正确', String(nf.correctCount)], ['错误', String(nf.wrongCount)],
+    ['正确率', acc + '%'], ['最高位数', String(nf.numDigits)],
+  ].map(s => `<div class="stat-item"><div class="lbl">${s[0]}</div><div class="val">${s[1]}</div></div>`).join('');
+  document.getElementById('nfResultOverlay').classList.add('show');
+}
+
+function nfCloseResult() { document.getElementById('nfResultOverlay').classList.remove('show'); nfReset(); }
+function nfReset() {
+  showPauseBtn(false);
+  nf.phase = 'idle'; nf.round = 0; nf.correctCount = 0; nf.wrongCount = 0;
+  nf.combo = 0; nf.maxCombo = 0; nf.numDigits = 4;
+  nfShowStatus('点击下方开始', 'ready');
+  nfRound.textContent = '0 / ' + NF_ROUNDS; nfProgress.style.width = '0%';
+  nfCorrect.textContent = '0'; nfWrong.textContent = '0'; nfCombo.textContent = '0';
+  nfBtnStart.textContent = '开始测试';
+}
+document.getElementById('nfBtnStart').addEventListener('click', () => { if (nf.phase === 'idle') nfStart(); });
+document.getElementById('nfBtnReset').addEventListener('click', nfReset);
+document.getElementById('nfRBtnClose').addEventListener('click', nfCloseResult);
+document.querySelectorAll('#modeNumflash .sub-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (nf.phase !== 'idle') return;
+    document.querySelectorAll('#modeNumflash .sub-mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    nf.endless = btn.dataset.nmode === 'endless';
+    nfReset(); nfBtnStart.textContent = nf.endless ? '开始无尽' : '开始测试';
+  });
+});
+nfShowStatus('点击下方开始', 'ready'); nfRound.textContent = '0 / ' + NF_ROUNDS;
+
+
+// =============================================
+// CHANGE BLINDNESS
+// =============================================
+const CB_ROUNDS = 10;
+const cbColors = ['#e74c3c', '#4A90D9', '#27ae60', '#f1c40f', '#9B59B6', '#E67E22', '#1ABC9C', '#e84393'];
+const cb = {
+  phase: 'idle', round: 0, combo: 0, maxCombo: 0,
+  correctCount: 0, wrongCount: 0, endless: false,
+  grid: [], size: 4, changedIdx: 0, lastTime: 0,
+  bestRecord: JSON.parse(localStorage.getItem('changeBest') || 'null'), lastBest: null,
+};
+const cbGrid = document.getElementById('cbGrid');
+const cbStatus = document.getElementById('cbStatus');
+const cbProgress = document.getElementById('cbProgress');
+const cbRound = document.getElementById('cbRound');
+const cbCorrect = document.getElementById('cbCorrect');
+const cbWrong = document.getElementById('cbWrong');
+const cbCombo = document.getElementById('cbCombo');
+const cbBtnStart = document.getElementById('cbBtnStart');
+
+function cbGenGrid(sz) {
+  return Array.from({ length: sz * sz }, () => cbColors[Math.floor(Math.random() * cbColors.length)]);
+}
+
+function cbRenderGrid(colors, sz, clickable) {
+  cbGrid.style.gridTemplateColumns = `repeat(${sz}, 1fr)`;
+  cbGrid.innerHTML = colors.map((c, i) =>
+    `<div class="cb-cell" data-idx="${i}" style="background:${c}${clickable ? ';cursor:pointer' : ''}"></div>`
+  ).join('');
+}
+
+let cbClickHandler = null;
+
+function cbShowOriginal() {
+  cb.phase = 'showing';
+  cbGrid.style.display = 'grid';
+  cbStatus.style.display = 'block';
+  cbStatus.textContent = '👀 记住颜色...';
+  cbStatus.className = 'status-text waiting';
+  cb.grid = cbGenGrid(cb.size);
+  cbRenderGrid(cb.grid, cb.size, false);
+  const displayTime = cb.endless ? Math.max(800, 2500 - cb.round * 50) : 2000;
+  setTimeout(() => cbShowChanged(), displayTime);
+}
+
+function cbShowChanged() {
+  if (cb.phase !== 'showing') return;
+  // Change one cell
+  cb.changedIdx = Math.floor(Math.random() * cb.grid.length);
+  let newColor;
+  do { newColor = cbColors[Math.floor(Math.random() * cbColors.length)]; } while (newColor === cb.grid[cb.changedIdx]);
+  const changed = [...cb.grid];
+  changed[cb.changedIdx] = newColor;
+  // Show a brief blank
+  cbGrid.style.opacity = '0';
+  setTimeout(() => {
+    if (cb.phase !== 'showing') return;
+    cbRenderGrid(changed, cb.size, true);
+    cbGrid.style.opacity = '1';
+    cbStatus.textContent = '🔍 找变化！点击变化的那一块';
+    cbStatus.className = 'status-text';
+    cb.lastTime = performance.now();
+  }, 300);
+}
+
+cbGrid.addEventListener('click', e => {
+  const cell = e.target.closest('.cb-cell');
+  if (!cell || cb.phase !== 'showing' || !cb.lastTime) return;
+  cb.phase = 'result';
+  const idx = parseInt(cell.dataset.idx);
+  const reaction = Math.round(performance.now() - cb.lastTime);
+  const correct = idx === cb.changedIdx;
+  if (correct) {
+    cb.correctCount++; cb.combo++; if (cb.combo > cb.maxCombo) cb.maxCombo = cb.combo;
+    cell.classList.add('correct');
+    playTone(660, 0.06, 'sine', 0.1); vibrate(6);
+    if (cb.bestRecord === null || reaction < cb.bestRecord) { cb.bestRecord = reaction; localStorage.setItem('changeBest', JSON.stringify(reaction)); }
+  } else {
+    cb.wrongCount++; cb.combo = 0; cell.classList.add('wrong');
+    // Highlight correct
+    cbGrid.querySelectorAll('.cb-cell')[cb.changedIdx].classList.add('correct');
+    playTone(180, 0.15, 'sawtooth', 0.06); vibrate([10, 15]);
+  }
+  cbCorrect.textContent = cb.correctCount;
+  cbWrong.textContent = cb.wrongCount;
+  cbCombo.textContent = cb.combo >= 3 ? cb.combo + ' 🔥' : String(cb.combo);
+  cbStatus.textContent = correct ? '✅ 找到了！' + reaction + 'ms' : '❌ 找错了！';
+  cbStatus.className = 'status-text';
+  if (!correct) {
+    cbGrid.querySelectorAll('.cb-cell')[cb.changedIdx].classList.add('highlight');
+  }
+  setTimeout(() => {
+    if (!cb.endless && cb.round >= CB_ROUNDS) cbEnd();
+    else cbNext();
+  }, correct ? 800 : 1200);
+});
+
+function cbNext() {
+  if (isPaused) { activeGameNext = cbNext; return; }
+  if (!cb.endless && cb.round >= CB_ROUNDS) { cbEnd(); return; }
+  cb.round++;
+  cbRound.textContent = cb.endless ? cb.round + ' 轮' : cb.round + ' / ' + CB_ROUNDS;
+  cbProgress.style.width = cb.endless ? '' : ((cb.round - 1) / CB_ROUNDS * 100) + '%';
+  cb.lastTime = 0;
+  cbGrid.style.opacity = '1';
+  cbShowOriginal();
+}
+
+function cbStart() {
+  initAudio();
+  showPauseBtn(cb.endless);
+  cb.phase = 'idle'; cb.round = 0; cb.correctCount = 0; cb.wrongCount = 0;
+  cb.combo = 0; cb.maxCombo = 0; cb.lastTime = 0;
+  cbCorrect.textContent = '0'; cbWrong.textContent = '0'; cbCombo.textContent = '0';
+  cbProgress.style.width = '0%'; cbBtnStart.textContent = '测试中...';
+  cbGrid.style.display = 'none';
+  cbStatus.style.display = 'block'; cbStatus.textContent = '准备...'; cbStatus.className = 'status-text';
+  setTimeout(() => cbNext(), 400);
+}
+
+function cbEnd() {
+  cb.phase = 'idle'; cbBtnStart.textContent = '再来一局';
+  cbStatus.textContent = '完成！'; cbStatus.className = 'status-text ready';
+  if (cb.correctCount === 0) {
+    document.getElementById('cbREmoji').textContent = '😅';
+    document.getElementById('cbRTitle').textContent = '一个都没找到？';
+    document.getElementById('cbRTime').textContent = '--';
+    document.getElementById('cbRStat').textContent = '正确率 0%';
+    document.getElementById('cbRComment').textContent = '注意看颜色变化的那一块！';
+    document.getElementById('cbRNewBest').style.display = 'none';
+    document.getElementById('cbRStatGrid').innerHTML = '';
+    document.getElementById('cbResultOverlay').classList.add('show');
+    return;
+  }
+  const acc = Math.round(cb.correctCount / (cb.correctCount + cb.wrongCount) * 100);
+  document.getElementById('cbREmoji').textContent = acc >= 80 ? '🤯' : acc >= 60 ? '🔥' : '👍';
+  document.getElementById('cbRTitle').textContent = acc >= 80 ? '👀 火眼金睛！' : acc >= 60 ? '🔍 观察力敏锐！' : '📈 继续练习！';
+  document.getElementById('cbRTime').textContent = '--';
+  document.getElementById('cbRStat').textContent = `正确率 ${acc}% · 答对 ${cb.correctCount}/${cb.correctCount + cb.wrongCount}`;
+  document.getElementById('cbRSub').textContent = (cb.endless ? cb.round + ' 轮' : CB_ROUNDS + ' 轮') + ' · 最高连击 ' + cb.maxCombo;
+  document.getElementById('cbRNewBest').style.display = 'none';
+  document.getElementById('cbRComment').textContent = acc >= 80 ? '你的视觉搜索和变化检测能力非常敏锐！能在短时间内发现细节变化。' : acc >= 60 ? '观察力不错！变化盲视是正常现象，练习可以提高对细节的敏感度。' : '变化盲视是所有人都会经历的，关键在于学会系统性地扫描对比。';
+  document.getElementById('cbRStatGrid').innerHTML = [
+    ['正确', String(cb.correctCount)], ['错误', String(cb.wrongCount)],
+    ['正确率', acc + '%'], ['连击', String(cb.maxCombo)],
+  ].map(s => `<div class="stat-item"><div class="lbl">${s[0]}</div><div class="val">${s[1]}</div></div>`).join('');
+  document.getElementById('cbResultOverlay').classList.add('show');
+}
+
+function cbCloseResult() { document.getElementById('cbResultOverlay').classList.remove('show'); cbReset(); }
+function cbReset() {
+  showPauseBtn(false);
+  cb.phase = 'idle'; cb.round = 0; cb.correctCount = 0; cb.wrongCount = 0;
+  cb.combo = 0; cb.maxCombo = 0; cb.lastTime = 0;
+  cbGrid.style.display = 'none'; cbGrid.style.opacity = '1';
+  cbStatus.style.display = 'block'; cbStatus.textContent = '点击下方开始'; cbStatus.className = 'status-text ready';
+  cbRound.textContent = '0 / ' + CB_ROUNDS; cbProgress.style.width = '0%';
+  cbCorrect.textContent = '0'; cbWrong.textContent = '0'; cbCombo.textContent = '0';
+  cbBtnStart.textContent = '开始测试';
+}
+document.getElementById('cbBtnStart').addEventListener('click', () => { if (cb.phase === 'idle') cbStart(); });
+document.getElementById('cbBtnReset').addEventListener('click', cbReset);
+document.getElementById('cbRBtnClose').addEventListener('click', cbCloseResult);
+document.querySelectorAll('#modeChange .sub-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (cb.phase !== 'idle') return;
+    document.querySelectorAll('#modeChange .sub-mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    cb.endless = btn.dataset.cbmode === 'endless';
+    cbReset(); cbBtnStart.textContent = cb.endless ? '开始无尽' : '开始测试';
+  });
+});
+cbStatus.style.display = 'block'; cbStatus.textContent = '点击下方开始'; cbStatus.className = 'status-text ready'; cbRound.textContent = '0 / ' + CB_ROUNDS;
+
+
+// =============================================
+// MODE SWITCHING (top level)
+// =============================================
+document.querySelectorAll('.mode-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    if (tab.classList.contains('active')) return;
+    const mode = tab.dataset.mode;
+
+    // Stop all games
+    if (s.timerId) clearInterval(s.timerId);
+    s.playing = false;
+    s.finished = false;
+    if (r.timerId) { clearTimeout(r.timerId); r.timerId = null; }
+    r.phase = 'idle';
+    m.phase = 'idle';
+    if (t.timerId) { clearTimeout(t.timerId); t.timerId = null; }
+    t.phase = 'idle';
+    st.phase = 'idle';
+    sg.phase = 'idle';
+    if (cr.timerId) { clearTimeout(cr.timerId); cr.timerId = null; }
+    cr.phase = 'idle';
+    nf.phase = 'idle';
+    cb.phase = 'idle';
+    showPauseBtn(false);
+    isPaused = false;
+    pauseOverlay.classList.remove('show');
+
+    // Render stats when switching to stats tab
+    if (mode === 'stats') renderStats();
+
+    // Suspend audio to prevent lingering tones
+    try { if (audioCtx && audioCtx.state === 'running') audioCtx.suspend(); } catch(e) {}
+
+    // Switch tab active
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+
+    // Switch panel
+    document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('mode' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
+
+    document.querySelectorAll('.result-overlay.show').forEach(o => o.classList.remove('show'));
+  });
+});
+</script>
+</body>
+</html>
