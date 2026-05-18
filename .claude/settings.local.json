@@ -26,7 +26,10 @@
       "Read(//d/scan_app_new/**)",
       "Bash(flutter build *)",
       "Bash(curl -s \"https://gitee.com/api/v5/repos/ljyjy5200/brain_trainer?access_token=207ce4cf7593d099d192ce51e348c207\")",
-      "Bash(curl -sL -o /dev/null -w \"%{http_code}\" \"https://ljyjyjy.github.io/brain_trainer/brain_trainer.html\")"
+      "Bash(curl -sL -o /dev/null -w \"%{http_code}\" \"https://ljyjyjy.github.io/brain_trainer/brain_trainer.html\")",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ],
     "additionalDirectories": [
       "D:\\编程",
