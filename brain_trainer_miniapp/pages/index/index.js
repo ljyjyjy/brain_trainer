@@ -1,4 +1,4 @@
-const GAME_URL = 'https://gitee.com/ljyjy5200/brain_trainer/raw/master/brain_trainer.html'
+const GAME_URL = 'https://sad.github.io/brain_trainer/brain_trainer.html'
 
 Page({
   data: {
