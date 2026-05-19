@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://ljyjyjy.github.io/brain_trainer/sitemap.xml
